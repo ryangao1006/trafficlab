@@ -2,7 +2,7 @@ import { Simulation, SIDES } from './engine.js';
 import { HOTSPOTS } from './draw.js';
 import { routeKey } from './conflicts.js';
 import { FlatView } from './flat-view.js';
-import { compareStrategies, comparisonCsv } from './compare.js';
+import { setupRaceDialog } from './race-ui.js';
 import { translate, sideName, localRoute, localEvent } from './i18n.js';
 
 const $=id=>document.getElementById(id), sim=new Simulation({},'smart');
@@ -138,6 +138,7 @@ motionPreference.addEventListener('change',e=>{reducedMotion=e.matches;invalidat
 function invalidate(){if(!frameId)frameId=requestAnimationFrame(frame);}
 function frame(now){
   frameId=0;
+  if ($('comparison').open) return;
   const cameraDelta=cameraPrevious?Math.min(now-cameraPrevious,50):0;
   cameraPrevious=now;
   if(running){
@@ -273,7 +274,7 @@ function applyLanguage(){
   for(const b of document.querySelectorAll('[data-lang]'))pressed(b,b.dataset.lang===lang);
   for(const d of SIDES){text(`entry-${d}`,t('entry',{side:name(d)}));text($(`light-${d}-ped`).lastElementChild,`${t('walk')} ${'NS'.includes(d)?'↔':'↕'}`);}
   text('view-badge',t(view.fallback?'view2d':'view3d'));refreshViewHint();hide($('camera-menu'),!!view.fallback);
-  hide($('map-toast'),true);refreshSky();refreshCity();refreshCameraControls();syncOptions();refresh();renderComparison();invalidate();
+  hide($('map-toast'),true);refreshSky();refreshCity();refreshCameraControls();syncOptions();refresh();raceDialog.refreshLanguage();invalidate();
 }
 function signalValue(d,kind){return kind==='ped'?sim.pedestrianSignal(d):sim.vehicleSignal(d,kind);}
 function refreshSignals(){
@@ -455,37 +456,21 @@ async function saveCsv(data, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
   return true;
 }
-let comparison;
-const compareDialog = $('comparison');
-function renderComparison() {
-  if (!comparison) return;
-  const labels = [['mean', 'compareMean'], ['p95', 'compareP95'], ['served', 'compareServed'], ['queued', 'compareQueued']];
-  const cards = ['smart', 'fixed'].map(policy => {
-    const groups = ['vehicle', 'pedestrian'].map(kind => {
-      const metrics = comparison[policy].metrics[kind];
-      const rows = labels.map(([key, label]) => {
-        const value = metrics[key];
-        const display = value === null ? '—' : key === 'mean' || key === 'p95' ? sec(value.toFixed(2)) : value;
-        return `<div><dt>${t(label)}</dt><dd>${display}</dd></div>`;
-      });
-      if (metrics.unserved) rows.push(`<div><dt>${t('compareUnserved')}</dt><dd>${metrics.unserved}</dd></div>`);
-      return `<h4>${t(kind === 'vehicle' ? 'cars' : 'people')}</h4><dl>${rows.join('')}</dl>`;
-    });
-    return `<section class="compare-card" data-policy="${policy}"><h3>${t(policy === 'smart' ? 'smart' : 'fixedTiming')}</h3>${groups.join('')}</section>`;
-  });
-  html('compare-results', cards.join(''));
-}
-function runComparison() {
-  comparison = compareStrategies($('compare-profile').value);
-  renderComparison();
-}
+let mainBeforeRace;
+const raceDialog = setupRaceDialog({
+  t, route, name, saveCsv,
+  environment: () => ({ city: view.city ?? savedCity, time: sceneTime, weather: sceneWeather }),
+  reducedMotion: () => reducedMotion,
+  onClose: () => {
+    setRunning(mainBeforeRace.running && !document.hidden);
+    accumulator = mainBeforeRace.accumulator;
+  },
+});
 $('compare-open').onclick = () => {
-  if (!comparison) runComparison();
-  compareDialog.showModal();
+  mainBeforeRace = { running, accumulator };
+  setRunning(false);
+  raceDialog.open();
 };
-$('compare-profile').onchange = runComparison;
-$('compare-form').onsubmit = event => { event.preventDefault(); runComparison(); };
-$('compare-export').onclick = () => saveCsv(comparisonCsv(comparison), 'trafficlab-strategy-comparison.csv');
 for (const disclosure of [$('sky-controls'), $('camera-menu')]) {
   disclosure.addEventListener('toggle', () => {
     if (!disclosure.open) return;

@@ -127,23 +127,65 @@
 <dialog id="settings"><button class="icon-button close" data-close="settings" data-label="close" data-icon="close"></button><p class="eyebrow" data-i18n="lab"></p><h2 data-i18n="settings"></h2><p data-i18n="settingsIntro"></p><form id="settings-form" novalidate><div id="timing-inputs"></div><p id="settings-error" role="alert"></p><button class="button primary" type="submit" data-i18n="apply"></button></form></dialog>
 <dialog id="comparison" aria-labelledby="compare-title">
   <div class="compare-header">
-    <h2 id="compare-title" data-i18n="compare"></h2>
+    <div><p class="race-kicker">TrafficLab</p><h2 id="compare-title" data-i18n="compare"></h2></div>
     <button class="icon-button" data-close="comparison" data-label="close" data-icon="close"></button>
   </div>
-  <p class="compare-note" data-i18n="compareIntro"></p>
-  <form id="compare-form" class="compare-toolbar">
+  <div class="race-banner">
+    <span id="race-outcome" role="status"></span>
+    <strong id="race-clock">0.00 s</strong>
+  </div>
+  <div id="race-views" class="race-views" data-renderer="2d">
+    <section class="race-lane" data-policy="smart">
+      <header><h3 data-i18n="smart"></h3><strong class="race-time"></strong></header>
+      <div class="race-board"><canvas class="race-map" width="640" height="640" role="img" data-label="raceSmartMap"></canvas></div>
+      <p class="race-phase"></p><p class="race-counts"></p>
+    </section>
+    <section class="race-lane" data-policy="fixed">
+      <header><h3 data-i18n="fixedTiming"></h3><strong class="race-time"></strong></header>
+      <div class="race-board"><canvas class="race-map" width="640" height="640" role="img" data-label="raceFixedMap"></canvas></div>
+      <p class="race-phase"></p><p class="race-counts"></p>
+    </section>
+  </div>
+  <div class="compare-toolbar">
     <label for="compare-profile" data-i18n="scenarios"></label>
     <select id="compare-profile">
       <option value="rush" data-i18n="busy"></option>
       <option value="quiet" data-i18n="quiet"></option>
       <option value="one-sided" data-i18n="oneSided"></option>
       <option value="pedestrian" data-i18n="walkPeak"></option>
+      <option value="custom" data-i18n="raceCustom"></option>
     </select>
-    <button class="button primary" type="submit" data-i18n="compareRun"></button>
-  </form>
-  <div id="compare-results" class="compare-results" aria-live="polite"></div>
-  <p class="compare-note" data-i18n="compareMethod"></p>
-  <button id="compare-export" class="button quiet" data-i18n="compareCsv"></button>
+    <button class="button primary" id="race-play" type="button"></button>
+    <button class="button quiet" id="race-replay" type="button" data-i18n="compareRun"></button>
+    <label for="race-speed" data-i18n="speed"></label>
+    <select id="race-speed"><option value="1">1×</option><option value="2">2×</option><option value="4" selected>4×</option></select>
+    <label for="race-view" data-i18n="cameraMenu"></label>
+    <select id="race-view"><option value="2d" data-i18n="race2d"></option><option value="3d" data-i18n="race3d"></option></select>
+  </div>
+  <p class="race-notice" id="race-view-status" role="status" hidden></p>
+  <details id="race-add">
+    <summary data-i18n="add"></summary>
+    <form id="race-add-form" class="race-add-form">
+      <label><span data-i18n="raceArrivalType"></span>
+        <select name="movement"><option value="straight" data-i18n="through"></option><option value="left" data-i18n="left"></option><option value="walk" data-i18n="ped"></option></select>
+      </label>
+      <label><span data-i18n="raceApproach"></span><select name="side" id="race-side"></select></label>
+      <label><span data-i18n="raceQuantity"></span><input type="number" name="count" value="1" required min="1" max="1000"></label>
+      <label id="race-time-field"><span data-i18n="raceAt"></span><input type="number" name="seconds" value="0" required min="0" max="600" step=".05"></label>
+      <button class="button primary" id="race-add-submit" type="submit" data-i18n="raceAddBoth"></button>
+      <button class="button quiet" id="race-clear" type="button" data-i18n="raceClear"></button>
+    </form>
+    <p class="race-notice" id="race-add-status" role="status"></p>
+    <p id="race-schedule"></p>
+    <ul id="race-arrivals" hidden></ul>
+  </details>
+  <details id="race-report" hidden>
+    <summary data-i18n="statistics"></summary>
+    <div id="compare-results" class="compare-results"></div>
+    <p class="compare-note" data-i18n="compareMethod"></p>
+    <button id="compare-export" class="button quiet" data-i18n="compareCsv"></button>
+  </details>
+  <p class="compare-note" data-i18n="compareIntro"></p>
 </dialog>
 <script defer src="src/boot.js"></script>
 </body>

@@ -519,3 +519,58 @@ body.booting > :not(.boot-screen):not(script){visibility:hidden}
 
 .view-tools{position:fixed;z-index:4}
 .mobile-layout .toast{top:calc(205px + var(--safe-top))}
+
+/* Live comparison keeps both maps visible at the same scale. */
+#comparison{
+  width:min(1020px,calc(100% - 24px));
+  max-width:none;
+}
+.race-kicker{color:#a7c9c6;font-size:11px;letter-spacing:.11em;text-transform:uppercase;margin:0 0 3px}
+.race-banner{
+  position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding:9px 12px;margin:10px 0;border:1px solid #547780;border-radius:9px;background:#203746;color:#e8fbf5;
+}
+#race-clock,.race-time{font-variant-numeric:tabular-nums;white-space:nowrap}
+.race-views{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.race-lane{
+  min-width:0;padding:8px;border:1px solid var(--line);border-top:2px solid #79cbb4;
+  background:#1a3040;border-radius:12px;
+}
+.race-lane[data-policy=fixed]{border-top-color:#e3bd82}
+.race-lane[data-winner=true]{border-color:#9ee3ad;box-shadow:inset 0 0 0 1px #9ee3ad}
+.race-lane header{display:flex;justify-content:space-between;align-items:center;gap:4px;margin-bottom:6px}
+.race-lane h3{margin:0;font-size:clamp(12px,2.4vw,18px)}
+.race-time{font-size:clamp(10px,2vw,15px);color:#a7e6bb}
+.race-board{
+  position:relative;margin-inline:auto;width:min(100%,430px);aspect-ratio:1;overflow:hidden;
+  border:1px solid var(--line);border-radius:8px;background:#152736;
+}
+.race-board canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.race-board .race-3d,#race-views[data-renderer="3d"] .race-map{visibility:hidden}
+#race-views[data-renderer="3d"] .race-3d{visibility:visible}
+.race-lane .race-phase,.race-lane .race-counts{margin:5px 0 0;font-size:clamp(10px,1.65vw,13px);line-height:1.35}
+.race-lane .race-phase{height:2.7em;overflow:auto;color:#c2ddd9}
+.race-notice{margin:6px 0;line-height:1.4}
+#race-add,#race-report{padding:8px 10px;margin-top:8px;border:1px solid var(--line);border-radius:9px}
+#race-add summary,#race-report summary{cursor:pointer;min-height:30px;padding-block:7px}
+.race-add-form{display:flex;gap:8px;align-items:end;flex-wrap:wrap}
+.race-add-form label{display:grid;gap:4px}
+.race-add-form :is(select,input){
+  max-width:100%;min-height:44px;background:#22394a;color:#eff7fa;border:1px solid var(--line);border-radius:7px;padding:6px;
+}
+.race-add-form input{width:90px}
+.race-add-form button{min-height:44px}
+#race-arrivals{max-height:104px;overflow:auto;padding-left:20px}
+#race-report .compare-results{margin-top:6px}
+#comparison button:disabled{opacity:.48;cursor:default}
+@media(max-width:600px){
+  #comparison{padding:10px;width:calc(100% - 14px)}
+  .race-views{gap:5px}
+  .race-lane{padding:4px}
+  .race-banner{padding:7px;font-size:12px}
+  .race-add-form :is(select,input),.compare-toolbar select{font-size:16px}
+}
+@media(orientation:landscape) and (max-height:450px){
+  .race-board{width:min(100%,142px)}
+  #comparison .compare-header button{min-height:36px}
+}

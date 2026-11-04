@@ -802,7 +802,7 @@ function makeSensors(scene){
   }return result;
 }
 export class TownView{
-  constructor(canvas,viewport,markers,onChange,onPick){
+  constructor(canvas,viewport,markers,onChange,onPick,{interactive=true}={}){
     this.canvas=canvas;this.viewport=viewport;this.markers=markers;this.onChange=onChange;this.onPick=onPick;
     this.renderer=new T.WebGLRenderer({canvas,alpha:true,antialias:true,powerPreference:'high-performance'});
     this.renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.15));this.renderer.setClearColor(0x000000,0);
@@ -829,9 +829,26 @@ export class TownView{
     this.streetLife=makeStreetLife(this.streetLifeGroup);
     this.actors=new Map();this.focus=new T.Mesh(ring,selectedMat);this.focus.visible=false;this.scene.add(this.focus);
     this.projector=new T.Vector3();this.tmp=new T.Object3D();this.ray=new T.Raycaster();this.camera.up.set(0,1,0);
-    canvas.addEventListener('webglcontextrestored',()=>{this.renderer.shadowMap.needsUpdate=true;this.river.invalidateReflection();this.onChange();});
+    if(interactive)canvas.addEventListener('webglcontextrestored',()=>{this.renderer.shadowMap.needsUpdate=true;this.river.invalidateReflection();this.onChange();});
     this.flyKeys=new Set();
-    this.director=new CameraDirector(this.camera,onChange);this.resizeObserver=new ResizeObserver(()=>this.resize());this.resizeObserver.observe(viewport);this.resize();this.bind();
+    this.director=new CameraDirector(this.camera,onChange);this.resizeObserver=new ResizeObserver(()=>this.resize());this.resizeObserver.observe(viewport);this.resize();if(interactive)this.bind();
+  }
+  dispose(){
+    this.cityRequest=(this.cityRequest??0)+1;
+    this.resizeObserver.disconnect();
+    this.onChange=()=>{};
+    this.resetActors();
+    for(const town of this.cities.values()){
+      town.surfaces.setQuality('performance');
+      town.river.setQuality('performance');
+    }
+    this.bloom?.dispose();
+    this.sun.shadow.map?.dispose();
+    // Release this view’s GPU allocations without disposing shared model geometry.
+    this.renderer.dispose();
+    this.renderer.forceContextLoss();
+    this.scene.clear();
+    this.cities.clear();
   }
   buildCity(name,data){
     const group=new T.Group();
@@ -893,11 +910,11 @@ export class TownView{
     this.director.apply();
     this.bloom?.resize();
   }
-  setShot(name,cut){
+  setShot(name,cut,layout){
     this.director.cancel();
     let fit;
-    if(name==='top'&&this.queueReach>500){
-      const {left,right,far,near}=this.streets.bounds(this.armReach);
+    if(name==='top'&&(layout?.reach??this.queueReach)>500){
+      const {left,right,far,near}=this.streets.bounds(layout?.armReach??this.armReach);
       const span=Math.max(near-far,(right-left)/this.camera.aspect);
       fit={distance:span*.61/Math.tan(T.MathUtils.degToRad(this.camera.fov/2)),
         target:[(right+left)/2,0,(near+far)/2]};
