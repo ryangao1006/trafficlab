@@ -1,4 +1,4 @@
-import { ComparisonRace, comparisonCsv, MAX_RACE_ARRIVALS, RACE_POLICIES, RACE_STEP } from './compare.js';
+import { ComparisonRace, comparisonCsv, RACE_POLICIES, RACE_STEP } from './compare.js';
 import { SIDES } from './engine.js';
 import { drawJunction } from './draw.js';
 import { queueLayout, queueViewSpan } from './queue-layout.js';
@@ -8,7 +8,7 @@ function text(element, value) {
   if (element.textContent !== String(value)) element.textContent = value;
 }
 
-export function setupRaceDialog({ t, route, name, environment, saveCsv, reducedMotion, onClose }) {
+export function setupRaceDialog({ t, route, name, environment, mainTraffic, saveCsv, reducedMotion, onClose }) {
   const dialog = $('comparison');
   const panels = RACE_POLICIES.map(key => {
     const lane = dialog.querySelector(`.race-lane[data-policy=${key}]`);
@@ -21,12 +21,13 @@ export function setupRaceDialog({ t, route, name, environment, saveCsv, reducedM
   const addForm = $('race-add-form'), addStatus = $('race-add-status'), viewChoice = $('race-view');
   const report = $('race-report');
   const motion = { running: false, previous: null, accumulator: 0, frame: 0, lastStatus: 0 };
-  let race = new ComparisonRace(profile.value);
+  const createRace = () => new ComparisonRace(profile.value, profile.value === 'main' ? { source: mainTraffic() } : {});
+  let race = createRace();
   let result = null, viewRequest = 0, views = [], ready3D = false, lastCamera = '', viewStatus = '';
   const sec = value => t('seconds', { n: value.toFixed(2) });
   const policyName = key => t(key === 'smart' ? 'smart' : 'fixedTiming');
   const beforeCustom = () => !motion.running && race.profile === 'custom' && race.stepNumber === 0;
-  const canAdd = () => !race.winner && !race.done && race.trace.length < MAX_RACE_ARRIVALS && (motion.running || beforeCustom());
+  const canAdd = () => !race.winner && !race.done && race.trace.length < race.arrivalLimit && (motion.running || beforeCustom() || (race.profile === 'main' && race.stepNumber === 0));
 
   function invalidate() {
     if (dialog.open && !motion.frame) motion.frame = requestAnimationFrame(frame);
@@ -166,8 +167,8 @@ export function setupRaceDialog({ t, route, name, environment, saveCsv, reducedM
       text(panel.counts, t('raceCounts', { admitted: sim.waitSamples.length, waiting: race.nextArrival - sim.waitSamples.length }));
     }
     text(play, t(motion.running ? 'pause' : 'play'));
-    play.disabled = !race.trace.length || race.done;
-    replay.disabled = !race.trace.length;
+    play.disabled = !race.hasTraffic || race.done;
+    replay.disabled = !race.hasTraffic;
     profile.disabled = motion.running;
     const addAllowed = canAdd();
     for (const field of addForm.elements) field.disabled = !addAllowed;
@@ -179,7 +180,16 @@ export function setupRaceDialog({ t, route, name, environment, saveCsv, reducedM
   }
 
   function refreshSchedule() {
-    text($('race-schedule'), t('raceSchedule', { n: race.trace.length, max: MAX_RACE_ARRIVALS }));
+    text($('race-schedule'), t('raceSchedule', { n: race.trace.length, max: race.arrivalLimit }));
+    const sourceInfo = $('race-source');
+    sourceInfo.hidden = !race.source;
+    if (race.source) {
+      const { snapshot, initialCount, carryoverCount } = race.source;
+      const people = race.source.trace.slice(0, initialCount).filter(record => record.movement === 'walk').length;
+      text(sourceInfo, t('raceMainSummary', {
+        time: sec(snapshot.time), cars: initialCount - people, people, clearing: carryoverCount,
+      }) + ' · ' + t(snapshot.auto ? 'raceMainAuto' : 'raceMainManual'));
+    }
     const list = $('race-arrivals');
     const show = race.profile === 'custom' && race.trace.length > 0;
     list.hidden = !show;
@@ -202,6 +212,9 @@ export function setupRaceDialog({ t, route, name, environment, saveCsv, reducedM
     report.hidden = !result;
     if (!result) { report.open = false; return; }
     const labels = [['mean', 'compareMean'], ['p95', 'compareP95'], ['served', 'compareServed'], ['queued', 'compareQueued']];
+    text($('race-method'), t(race.source ? 'compareMainMethod' : 'compareMethodTimings', {
+      green: race.sides.fixed.sim.timings.maxGreen, walk: race.sides.fixed.sim.timings.walk,
+    }));
     $('compare-results').innerHTML = RACE_POLICIES.map(key => {
       const { metrics, finishedAt } = result[key];
       const groups = ['vehicle', 'pedestrian'].map(kind => {
@@ -250,7 +263,7 @@ export function setupRaceDialog({ t, route, name, environment, saveCsv, reducedM
   play.onclick = () => setRunning(!motion.running);
   replay.onclick = () => reset(race, true);
   profile.onchange = () => {
-    reset(new ComparisonRace(profile.value), false);
+    reset(createRace(), false);
     if (profile.value === 'custom') $('race-add').open = true;
   };
   viewChoice.onchange = changeView;
@@ -261,7 +274,7 @@ export function setupRaceDialog({ t, route, name, environment, saveCsv, reducedM
     const data = new FormData(addForm);
     const count = Number(data.get('count'));
     const ok = race.add({ side: data.get('side'), movement: data.get('movement'), count, seconds: Number(data.get('seconds')) }, motion.running);
-    text(addStatus, ok ? t('raceAdded', { n: count }) : t('raceInvalid', { max: MAX_RACE_ARRIVALS }));
+    text(addStatus, ok ? t('raceAdded', { n: count }) : t('raceInvalid', { max: race.arrivalLimit }));
     refreshStatus();
     refreshSchedule();
     invalidate();
@@ -281,7 +294,13 @@ export function setupRaceDialog({ t, route, name, environment, saveCsv, reducedM
   });
 
   return {
-    open() { dialog.showModal(); refreshStatus(); invalidate(); },
+    open({ running = false, speed = 1 } = {}) {
+      profile.value = 'main';
+      $('race-speed').value = String(speed);
+      reset(createRace(), running);
+      dialog.showModal();
+      invalidate();
+    },
     refreshLanguage,
   };
 }

@@ -134,6 +134,7 @@
     <span id="race-outcome" role="status"></span>
     <strong id="race-clock">0.00 s</strong>
   </div>
+  <p id="race-source" class="race-notice" role="status" hidden></p>
   <div id="race-views" class="race-views" data-renderer="2d">
     <section class="race-lane" data-policy="smart">
       <header><h3 data-i18n="smart"></h3><strong class="race-time"></strong></header>
@@ -149,6 +150,7 @@
   <div class="compare-toolbar">
     <label for="compare-profile" data-i18n="scenarios"></label>
     <select id="compare-profile">
+      <option value="main" data-i18n="raceMain"></option>
       <option value="rush" data-i18n="busy"></option>
       <option value="quiet" data-i18n="quiet"></option>
       <option value="one-sided" data-i18n="oneSided"></option>
@@ -158,7 +160,7 @@
     <button class="button primary" id="race-play" type="button"></button>
     <button class="button quiet" id="race-replay" type="button" data-i18n="compareRun"></button>
     <label for="race-speed" data-i18n="speed"></label>
-    <select id="race-speed"><option value="1">1×</option><option value="2">2×</option><option value="4" selected>4×</option></select>
+    <select id="race-speed"><option value="0.5">½×</option><option value="1">1×</option><option value="2">2×</option><option value="4" selected>4×</option></select>
     <label for="race-view" data-i18n="cameraMenu"></label>
     <select id="race-view"><option value="2d" data-i18n="race2d"></option><option value="3d" data-i18n="race3d"></option></select>
   </div>
@@ -182,7 +184,7 @@
   <details id="race-report" hidden>
     <summary data-i18n="statistics"></summary>
     <div id="compare-results" class="compare-results"></div>
-    <p class="compare-note" data-i18n="compareMethod"></p>
+    <p id="race-method" class="compare-note"></p>
     <button id="compare-export" class="button quiet" data-i18n="compareCsv"></button>
   </details>
   <p class="compare-note" data-i18n="compareIntro"></p>

@@ -47,7 +47,7 @@ export class Simulation {
     if (!['straight', 'left'].includes(movement) || (movement === 'left' && this.mode === 'straight')) return false;
     const key = routeKey(direction, movement);
     const car = { id: this.nextId++, direction, movement,
-      group: this.mode === 'smart' ? key : groupFor(direction, movement),
+      group: this.mode === 'smart' ? key : groupFor(direction, movement), born: this.time,
       s: 0, v: 0, previousS: 0, wait: 0, served: false };
     if (this.queuedCars.has(key) || !this.entryClear(car)) {
       enqueue(this.queuedCars, key, car);

@@ -574,3 +574,10 @@ body.booting > :not(.boot-screen):not(script){visibility:hidden}
   .race-board{width:min(100%,142px)}
   #comparison .compare-header button{min-height:36px}
 }
+
+#race-source{font-size:12px;line-height:1.4;color:#bdd6df}
+@media(orientation:landscape) and (max-height:450px){
+  #comparison:has(#race-source:not([hidden])) .race-board{width:min(100%,104px)}
+  #comparison .race-kicker{display:none}
+  #race-source{font-size:11px;margin-block:4px}
+}

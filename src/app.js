@@ -3,6 +3,7 @@ import { HOTSPOTS } from './draw.js';
 import { routeKey } from './conflicts.js';
 import { FlatView } from './flat-view.js';
 import { setupRaceDialog } from './race-ui.js';
+import { captureMainTraffic } from './compare.js';
 import { translate, sideName, localRoute, localEvent } from './i18n.js';
 
 const $=id=>document.getElementById(id), sim=new Simulation({},'smart');
@@ -459,6 +460,7 @@ async function saveCsv(data, filename) {
 let mainBeforeRace;
 const raceDialog = setupRaceDialog({
   t, route, name, saveCsv,
+  mainTraffic: () => captureMainTraffic(sim),
   environment: () => ({ city: view.city ?? savedCity, time: sceneTime, weather: sceneWeather }),
   reducedMotion: () => reducedMotion,
   onClose: () => {
@@ -469,7 +471,7 @@ const raceDialog = setupRaceDialog({
 $('compare-open').onclick = () => {
   mainBeforeRace = { running, accumulator };
   setRunning(false);
-  raceDialog.open();
+  raceDialog.open({ running: mainBeforeRace.running, speed });
 };
 for (const disclosure of [$('sky-controls'), $('camera-menu')]) {
   disclosure.addEventListener('toggle', () => {

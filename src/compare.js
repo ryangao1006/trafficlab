@@ -1,4 +1,5 @@
 import { SIDES, Simulation } from './engine.js';
+import { routeKey } from './conflicts.js';
 
 const PHASES = [
   ['N_T', 'S_T'], ['N_L', 'S_L'], ['E_T', 'W_T'], ['E_L', 'W_L'],
@@ -6,7 +7,7 @@ const PHASES = [
 ];
 
 export class FixedTiming extends Simulation {
-  constructor() { super({}, 'smart', null); }
+  constructor(timings = {}) { super(timings, 'smart', null); }
   reset() {
     super.reset();
     this.phaseIndex = -1;
@@ -26,7 +27,7 @@ export class FixedTiming extends Simulation {
   keepSmartGreen() { return true; }
   smartGreenLimits() {
     const hasCars = this.phaseIndex < PHASES.length - 1;
-    const duration = hasCars ? 10 : 4;
+    const duration = hasCars ? this.timings.maxGreen : this.timings.walk;
     // Tolerate floating-point rounding at the exact fixed step boundary.
     return { hasCars, min: duration, max: duration - 1e-9 };
   }
@@ -71,11 +72,11 @@ function replay(sim, trace) {
   return summarize(sim, trace);
 }
 
-function summarize(sim, trace) {
+function summarize(sim, trace, useRecordedIds = false) {
   const admitted = new Map(sim.waitSamples.map(sample => [sample.id, sample.time]));
   const records = trace.map((arrival, i) => {
-    const time = arrival.step / STEPS_PER_SECOND;
-    const admission = admitted.get(i + 1);
+    const time = arrival.arrivalTime ?? arrival.step / STEPS_PER_SECOND;
+    const admission = admitted.get(useRecordedIds ? arrival.id : i + 1);
     return { ...arrival, time, admission, wait: admission === undefined ? undefined : admission - time };
   });
   const metrics = {};
@@ -106,23 +107,81 @@ export function comparisonCsv(result) {
   const rows = [['profile', 'strategy', 'kind', 'side', 'movement', 'arrival_s', 'admission_s', 'wait_s']];
   const race = Object.hasOwn(result, 'winner');
   if (race) rows[0].push('cleared_s', 'difference_s', 'winner');
+  if (result.sourceTime !== undefined) rows[0].push('main_time_s', 'initial');
   for (const policy of RACE_POLICIES) {
     for (const record of result[policy].records) {
       const row = [result.profile, policy, record.movement === 'walk' ? 'pedestrian' : 'vehicle',
         record.side, record.movement, record.time.toFixed(2), record.admission?.toFixed(2) ?? '', record.wait?.toFixed(2) ?? ''];
       if (race) row.push(result[policy].finishedAt?.toFixed(2) ?? '', result.difference?.toFixed(2) ?? '', result.winner ?? '');
+      if (result.sourceTime !== undefined) row.push(result.sourceTime.toFixed(2), record.initial ? 'true' : 'false');
       rows.push(row);
     }
   }
   return rows.map(row => row.join(',')).join('\n');
 }
 
+// Capture the visible junction and its overflow queues without changing the main run.
+export function captureMainTraffic(sim) {
+  const snapshot = structuredClone({
+    cars: sim.cars, pedestrians: sim.pedestrians,
+    queuedCars: [...sim.queuedCars], queuedPedestrians: [...sim.queuedPedestrians], requests: [...sim.requests],
+    nextId: sim.nextId, timings: sim.timings, time: sim.time, mode: sim.mode,
+    auto: sim.auto, seed: sim.seed, arrivalClock: sim.arrivalClock, arrivalPeriod: sim.arrivalPeriod,
+  });
+  const trace = [];
+  const requestTimes = new Map(snapshot.requests.map(([key, time]) => [key, time - snapshot.time]));
+  const allCars = [...snapshot.cars, ...snapshot.queuedCars.flatMap(([, queue]) => queue)];
+  const allPeople = [...snapshot.pedestrians, ...snapshot.queuedPedestrians.flatMap(([, queue]) => queue)];
+  for (const car of allCars) {
+    const previousGroup = car.group;
+    car.group = routeKey(car.direction, car.movement);
+    if (!car.served && requestTimes.has(previousGroup)) requestTimes.set(car.group, requestTimes.get(previousGroup));
+    car.born = (car.born ?? snapshot.time - car.wait) - snapshot.time;
+    if (car.queuedAt !== undefined) car.queuedAt -= snapshot.time;
+    if (!car.served) trace.push({ step: 0, arrivalTime: 0, side: car.direction, movement: car.movement ?? 'straight', id: car.id, initial: true });
+  }
+  for (const person of allPeople) {
+    person.born -= snapshot.time;
+    if (!person.crossing) trace.push({ step: 0, arrivalTime: 0, side: person.side, movement: 'walk', id: person.id, initial: true });
+  }
+  snapshot.requests = [...requestTimes];
+  trace.sort((a, b) => a.id - b.id);
+  const initialCount = trace.length;
+  const carryoverCount = snapshot.cars.filter(car => car.served).length + snapshot.pedestrians.filter(person => person.crossing).length;
+  let clock = snapshot.arrivalClock;
+  let seed = snapshot.seed;
+  const random = () => {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    return seed / 4294967296;
+  };
+  if (snapshot.auto) {
+    for (let step = 0; step < HORIZON; step++) {
+      clock += RACE_STEP;
+      if (clock < snapshot.arrivalPeriod) continue;
+      clock = 0;
+      let side, movement;
+      if (random() < .24) {
+        side = SIDES[Math.floor(random() * 4)];
+        movement = 'walk';
+      } else {
+        side = SIDES[Math.floor(random() * 4)];
+        movement = snapshot.mode !== 'straight' && random() < .35 ? 'left' : 'straight';
+      }
+      trace.push({ step, arrivalTime: (step + 1) * RACE_STEP, side, movement });
+    }
+  }
+  return { snapshot, trace, initialCount, carryoverCount };
+}
+
 export class ComparisonRace {
-  constructor(profile = 'rush', { seed = 17, demandPolicy } = {}) {
-    if (!COMPARE_PROFILES.includes(profile) && profile !== 'custom') throw new Error('Unknown race profile');
+  constructor(profile = 'rush', { seed = 17, demandPolicy, source } = {}) {
+    if (!COMPARE_PROFILES.includes(profile) && !['custom', 'main'].includes(profile)) throw new Error('Unknown race profile');
+    if (profile === 'main' && !source) throw new Error('Main traffic snapshot is required');
     this.profile = profile;
+    this.source = profile === 'main' ? structuredClone(source) : null;
     this.demandPolicy = demandPolicy;
-    this.trace = profile === 'custom' ? [] : comparisonArrivals(profile, seed);
+    this.trace = this.source ? structuredClone(this.source.trace) : profile === 'custom' ? [] : comparisonArrivals(profile, seed);
+    this.arrivalLimit = Math.max(MAX_RACE_ARRIVALS, this.trace.length);
     this.reset();
   }
 
@@ -130,20 +189,43 @@ export class ComparisonRace {
     this.stepNumber = 0;
     this.nextArrival = 0;
     this.sides = {
-      smart: { sim: new Simulation({}, 'smart', this.demandPolicy), finishedAt: null },
-      fixed: { sim: new FixedTiming(), finishedAt: null },
+      smart: { sim: new Simulation(this.source?.snapshot.timings, 'smart', this.demandPolicy), finishedAt: null },
+      fixed: { sim: new FixedTiming(this.source?.snapshot.timings), finishedAt: null },
     };
+    if (this.source) {
+      this.nextArrival = this.source.initialCount;
+      for (const record of this.trace) if (!record.initial) delete record.id;
+      for (const key of RACE_POLICIES) {
+        const { sim } = this.sides[key];
+        if (key === 'fixed') sim.phaseIndex = -1;
+        const snapshot = structuredClone(this.source.snapshot);
+        sim.cars = snapshot.cars;
+        sim.pedestrians = snapshot.pedestrians;
+        sim.queuedCars = new Map(snapshot.queuedCars);
+        sim.queuedPedestrians = new Map(snapshot.queuedPedestrians);
+        sim.nextId = snapshot.nextId;
+        sim.state = sim.junctionOccupied() ? 'ALL_RED' : 'IDLE';
+        sim.elapsed = 0;
+        sim.current = null;
+        sim.activeRoutes.clear();
+        sim.updateRequests();
+        for (const [key, since] of snapshot.requests) {
+          if (sim.requests.has(key)) sim.requests.set(key, Math.min(since, sim.requests.get(key)));
+        }
+      }
+    }
     this.winner = null;
     this.timedOut = false;
   }
 
   get time() { return this.stepNumber / STEPS_PER_SECOND; }
+  get hasTraffic() { return this.trace.length > 0 || (this.source?.carryoverCount ?? 0) > 0; }
   get done() { return this.timedOut || RACE_POLICIES.every(key => this.sides[key].finishedAt !== null); }
 
   add({ side, movement, count, seconds }, live = false) {
-    if (this.winner || this.done || (live ? this.stepNumber >= DRAIN_LIMIT : this.profile !== 'custom' || this.stepNumber !== 0)) return false;
+    if (this.winner || this.done || (live ? this.stepNumber >= DRAIN_LIMIT : !['custom', 'main'].includes(this.profile) || this.stepNumber !== 0)) return false;
     if (!SIDES.includes(side) || !['walk', 'left', 'straight'].includes(movement) ||
-        !Number.isInteger(count) || count < 1 || this.trace.length + count > MAX_RACE_ARRIVALS ||
+        !Number.isInteger(count) || count < 1 || this.trace.length + count > this.arrivalLimit ||
         (!live && (!Number.isFinite(seconds) || seconds < 0 || seconds > MAX_CUSTOM_TIME))) return false;
     const step = live ? this.stepNumber : Math.round(seconds * STEPS_PER_SECOND);
     const additions = Array.from({ length: count }, () => ({ step, side, movement }));
@@ -153,9 +235,11 @@ export class ComparisonRace {
   }
 
   step() {
-    if (this.done || !this.trace.length) return;
+    if (this.done || !this.hasTraffic) return;
     while (this.trace[this.nextArrival]?.step === this.stepNumber) {
-      const { side, movement } = this.trace[this.nextArrival++];
+      const record = this.trace[this.nextArrival++];
+      const { side, movement } = record;
+      if (this.source) record.id = this.sides.smart.sim.nextId;
       for (const key of RACE_POLICIES) {
         const { sim } = this.sides[key];
         if (movement === 'walk') sim.addPedestrian(side);
@@ -180,9 +264,10 @@ export class ComparisonRace {
 
   report() {
     const result = { profile: this.profile, winner: this.winner };
+    if (this.source) result.sourceTime = this.source.snapshot.time;
     for (const key of RACE_POLICIES) {
       const { sim, finishedAt } = this.sides[key];
-      result[key] = { ...summarize(sim, this.trace), finishedAt };
+      result[key] = { ...summarize(sim, this.trace, !!this.source), finishedAt };
     }
     result.difference = RACE_POLICIES.every(key => result[key].finishedAt !== null)
       ? Math.abs(result.smart.finishedAt - result.fixed.finishedAt) : null;
