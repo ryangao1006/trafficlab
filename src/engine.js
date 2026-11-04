@@ -1,5 +1,6 @@
 import { LONG_REQUEST_WAIT, SMART_ROUTES, routeKey, routeName, isWalkRoute, chooseRoutes, routesConflict } from './conflicts.js';
 import { clearanceDistance, laneGap, routeLength } from './routes.js';
+import { DEMAND_POLICY } from './demand-policy.js';
 export const GROUPS = ['NS', 'EW', 'PED'];
 export const TURN_GROUPS = ['NS', 'EW', 'NS_LEFT', 'EW_LEFT', 'PED'];
 export const DEFAULT_TIMINGS = Object.freeze({ minGreen: 3, maxGreen: 10, amber: 1, allRed: 1, walk: 4, pedestrianClear: 1 });
@@ -22,7 +23,8 @@ function dequeue(queues, key) {
 export const compatibleCrossing = (group, side) =>
   (group === 'NS' && ['E', 'W'].includes(side)) || (group === 'EW' && ['N', 'S'].includes(side));
 export class Simulation {
-  constructor(timings = {}, mode = 'straight') {
+  constructor(timings = {}, mode = 'straight', demandPolicy = DEMAND_POLICY) {
+    this.demandPolicy = demandPolicy;
     this.timings = { ...DEFAULT_TIMINGS, ...timings }; this.setMode(mode);
   }
   get groups() { return this.mode === 'smart' ? SMART_ROUTES : this.mode === 'left-turns' ? TURN_GROUPS : GROUPS; }
@@ -104,7 +106,9 @@ export class Simulation {
   selectGroup() {
     if (this.mode === 'smart') {
       const pending = new Map([...this.requests].filter(([k]) => this.state !== 'GREEN' || !this.activeRoutes.has(k)));
-      return chooseRoutes(pending,{count:k=>this.routeCount(k),now:this.time})[0] ?? null;
+      const plan = this.demandPolicy ? this.demandPolicy.plan(this, [], pending) :
+        chooseRoutes(pending,{count:k=>this.routeCount(k),now:this.time});
+      return plan.find(key => !this.activeRoutes.has(key) || this.state !== 'GREEN') ?? null;
     }
     const oldest = this.nextGroup();
     if (oldest !== 'PED') return oldest;
@@ -177,10 +181,11 @@ export class Simulation {
     return visible + this.overflowCount(key);
   }
   planRoutes(required = []) {
+    if (this.demandPolicy) return this.demandPolicy.plan(this, required);
     return chooseRoutes(this.requests,{required,count:k=>this.routeCount(k),now:this.time});
   }
-  beginSmartPhase() {
-    const plan = this.planRoutes(); if (!plan.length) return;
+  beginSmartPhase(plan = this.planRoutes()) {
+    if (!plan.length) return;
     this.current = plan[0]; this.activeRoutes = new Set(plan); this.phaseServed.clear(); this.state = 'GREEN'; this.elapsed = 0;
     const priority = this.current, n = this.routeCount(priority);
     this.log(`Smart green: ${plan.map(routeName).join(' + ')}. Priority: ${routeName(priority)} (${n} queued or approaching).`,
@@ -203,6 +208,7 @@ export class Simulation {
     return { hasCars, min, max: Math.max(min,this.timings.maxGreen) };
   }
   keepSmartGreen(hasCars) {
+    if (this.demandPolicy) return this.demandPolicy.keepGreen(this, hasCars);
     // A moving car about to reach the sensor counts through the brief gap between cars.
     const approaching = new Set(this.cars.filter(c => !c.served && c.s + (c.v ?? 0)*.9 >= 240).map(c => c.group));
     const active = [...this.activeRoutes].reduce((n,key) =>
@@ -228,9 +234,13 @@ export class Simulation {
       }
     } else if (this.state === 'AMBER' && this.elapsed >= this.timings.amber) {
       this.state='ALL_RED'; this.elapsed=0; this.log('Clearance: admitted vehicles and people finish their routes.','logClear');
-    } else if (['ALL_RED','PED_CLEAR'].includes(this.state) && this.elapsed >= (this.state === 'PED_CLEAR' ? this.timings.pedestrianClear : this.timings.allRed) && !this.junctionOccupied()) {
-      this.state='IDLE'; this.elapsed=0; this.current=null; this.activeRoutes.clear();
-      if(this.hasPhaseDemand())this.beginSmartPhase();
+    } else if (['ALL_RED','PED_CLEAR'].includes(this.state) && this.elapsed >= (this.state === 'PED_CLEAR' ? this.timings.pedestrianClear : this.timings.allRed)) {
+      if (!this.junctionOccupied()) {
+        this.state='IDLE';this.elapsed=0;this.current=null;this.activeRoutes.clear();
+        if(this.hasPhaseDemand())this.beginSmartPhase();
+      } else if (this.demandPolicy && this.hasPhaseDemand()) {
+        this.beginSmartPhase(this.demandPolicy.plan(this, [], this.requests, true));
+      }
     }
   }
   junctionOccupied() {

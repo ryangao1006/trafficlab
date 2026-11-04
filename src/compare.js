@@ -6,7 +6,7 @@ const PHASES = [
 ];
 
 export class FixedTiming extends Simulation {
-  constructor() { super({}, 'smart'); }
+  constructor() { super({}, 'smart', null); }
   reset() {
     super.reset();
     this.phaseIndex = -1;
@@ -41,8 +41,7 @@ export const RACE_POLICIES = ['smart', 'fixed'];
 const HORIZON = 120 * STEPS_PER_SECOND;
 const DRAIN_LIMIT = 1800 * STEPS_PER_SECOND;
 
-function arrivals(profile) {
-  let seed = 17;
+function comparisonArrivals(profile, seed = 17) {
   const random = () => {
     seed = (seed * 1664525 + 1013904223) >>> 0;
     return seed / 4294967296;
@@ -95,7 +94,7 @@ function summarize(sim, trace) {
 
 export function compareStrategies(profile) {
   if (!COMPARE_PROFILES.includes(profile)) throw new Error('Unknown comparison profile');
-  const trace = arrivals(profile);
+  const trace = comparisonArrivals(profile);
   return {
     profile,
     smart: replay(new Simulation({}, 'smart'), trace),
@@ -119,10 +118,11 @@ export function comparisonCsv(result) {
 }
 
 export class ComparisonRace {
-  constructor(profile = 'rush') {
+  constructor(profile = 'rush', { seed = 17, demandPolicy } = {}) {
     if (!COMPARE_PROFILES.includes(profile) && profile !== 'custom') throw new Error('Unknown race profile');
     this.profile = profile;
-    this.trace = profile === 'custom' ? [] : arrivals(profile);
+    this.demandPolicy = demandPolicy;
+    this.trace = profile === 'custom' ? [] : comparisonArrivals(profile, seed);
     this.reset();
   }
 
@@ -130,7 +130,7 @@ export class ComparisonRace {
     this.stepNumber = 0;
     this.nextArrival = 0;
     this.sides = {
-      smart: { sim: new Simulation({}, 'smart'), finishedAt: null },
+      smart: { sim: new Simulation({}, 'smart', this.demandPolicy), finishedAt: null },
       fixed: { sim: new FixedTiming(), finishedAt: null },
     };
     this.winner = null;
