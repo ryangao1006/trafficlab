@@ -6,7 +6,13 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23254958'/%3E%3Ccircle cx='8' cy='16' r='3' fill='%23e79c84'/%3E%3Ccircle cx='16' cy='16' r='3' fill='%23f2d092'/%3E%3Ccircle cx='24' cy='16' r='3' fill='%23aada9b'/%3E%3C/svg%3E">
 <title>TrafficLab — 3D Intersection Studio</title><link rel="stylesheet" href="src/style.css">
 </head>
-<body>
+<body class="booting">
+<div id="boot" class="boot-screen">
+  <strong>TrafficLab</strong>
+  <p id="boot-status" role="status">Loading TrafficLab…</p>
+  <div id="boot-failure" hidden><p id="boot-error" role="alert">TrafficLab could not start.</p><a id="boot-retry" href="">Retry</a></div>
+  <noscript><p>Enable JavaScript to run TrafficLab.</p></noscript>
+</div>
 <div id="viewport" class="viewport">
         <canvas id="junction" tabindex="0" data-label="canvasLabel"></canvas>
         <div class="map-credit" id="map-credit" hidden>
@@ -19,12 +25,12 @@
         <div id="tour-status" class="tour-status" role="status" hidden></div>
         <div id="map-toast" class="toast" role="status" hidden></div>
         <div id="map-inspector" class="map-inspector" hidden><div><small data-i18n="inspect"></small><strong id="inspect-title"></strong><span id="inspect-detail"></span></div><button id="inspect-close" class="icon-button" data-label="close" data-icon="close"></button></div>
-        <div class="view-tools"><button id="paths-toggle" class="paths-toggle" aria-pressed="true" data-tip="pathsTip" data-label="paths"><span data-icon="routes"></span><span data-i18n="paths"></span></button><div class="camera-tools" id="camera-tools"><button id="zoom-in" data-icon="plus" data-tip="zoomIn" data-label="zoomIn"></button><button id="zoom-out" data-icon="minus" data-tip="zoomOut" data-label="zoomOut"></button><span class="divider"></span><button id="street-view" data-icon="street" data-tip="streetView" data-label="streetView"></button><button id="top-view" data-icon="top" data-tip="top" data-label="top"></button><button id="view-reset" data-icon="orbit" data-tip="viewReset" data-label="viewReset"></button><span class="divider"></span><button id="free-view" aria-pressed="false" data-icon="fly" data-tip="freeView" data-label="freeView"></button><button id="camera-tour" aria-pressed="false" data-tip="tour" data-label="tour"><span data-icon="film"></span><span data-i18n="tour"></span></button></div></div>
       </div>
+<div class="view-tools"><button id="paths-toggle" class="paths-toggle" aria-pressed="true" data-tip="pathsTip" data-label="paths"><span data-icon="routes"></span><span data-i18n="paths"></span></button><details class="camera-menu" id="camera-menu"><summary><span data-icon="top"></span><span data-i18n="cameraMenu"></span></summary><div class="camera-tools" id="camera-tools"><button id="zoom-in" data-icon="plus" data-tip="zoomIn" data-label="zoomIn"></button><button id="zoom-out" data-icon="minus" data-tip="zoomOut" data-label="zoomOut"></button><span class="divider"></span><button id="street-view" data-icon="street" data-tip="streetView" data-label="streetView"></button><button id="camera-river" data-icon="map" data-tip="riverView" data-label="riverView"></button><button id="top-view" data-icon="top" data-tip="top" data-label="top"></button><button id="view-reset" data-icon="orbit" data-tip="viewReset" data-label="viewReset"></button><span class="divider"></span><button id="free-view" aria-pressed="false" data-icon="fly" data-tip="freeView" data-label="freeView"></button><button id="camera-tour" aria-pressed="false" data-tip="tour" data-label="tour"><span data-icon="film"></span><span data-i18n="tour"></span></button></div></details></div>
 <header class="topbar">
   <div class="brand"><span class="brand-icon" aria-hidden="true"><i></i><i></i><i></i></span><strong>Traffic<span>Lab</span></strong><small data-i18n="studio"></small></div>
   <details class="sky-controls" id="sky-controls">
-    <summary><span data-icon="sun"></span><strong id="sky-title"></strong><span id="sky-clock"></span></summary>
+    <summary><span data-icon="sun"></span><span class="scene-label" data-i18n="sceneMenu"></span><strong id="sky-title"></strong><span id="sky-clock"></span></summary>
     <div class="sky-menu">
       <label for="scene-city" data-i18n="city"></label>
       <select id="scene-city">
@@ -67,12 +73,17 @@
         <div class="clock"><span data-i18n="clock"></span><strong id="time">00:00</strong><small><i></i><span id="run-status"></span></small></div>
       </div>
       <div class="simulation-controls">
-      <div class="signal-board" id="signal-board"></div>
-      <details class="stats" id="stats"><summary><span data-icon="stats"></span><strong data-i18n="statistics"></strong></summary><div class="metrics"><div><span data-i18n="served"></span><strong id="cars-served">0</strong></div><div><span data-i18n="crossed"></span><strong id="people-served">0</strong></div><div><span data-i18n="carWait" data-tip="carWaitTip"></span><strong id="vehicle-wait">—</strong></div><div><span data-i18n="pedWait" data-tip="pedWaitTip"></span><strong id="pedestrian-wait">—</strong></div></div></details>
+
       <div class="transport" id="transport"><button id="start" class="button primary"><span id="play-icon" data-icon="play"></span><span id="play-label"></span></button><button id="reset" class="button quiet"><span data-icon="reset"></span><span data-i18n="reset"></span></button><button id="quick-demo" class="button demo"><span data-icon="spark"></span><span data-i18n="demo"></span></button><button id="mobile-controls" class="button quiet" data-label="mobileControls" aria-haspopup="dialog" aria-controls="mobile-sheet" hidden><span data-icon="lanes"></span><span data-i18n="mobileControls"></span></button><div class="speed" id="run-speed" role="group" data-label="speed"><span data-i18n="speed"></span><div><button data-speed="0.5">½×</button><button data-speed="1" class="active" aria-pressed="true">1×</button><button data-speed="2">2×</button><button data-speed="4">4×</button></div></div></div>
       </div>
     </section>
     <aside class="sidebar" id="sidebar">
+      <div class="hud-tabs" role="tablist" data-label="controls">
+        <button id="tab-scenarios" type="button" role="tab" aria-selected="true" aria-controls="panel-scenarios" data-tab="scenarios" data-i18n="tabScenarios"></button>
+        <button id="tab-traffic" type="button" role="tab" aria-selected="false" aria-controls="panel-traffic" tabindex="-1" data-tab="traffic" data-i18n="tabTraffic"></button>
+        <button id="tab-results" type="button" role="tab" aria-selected="false" aria-controls="panel-results" tabindex="-1" data-tab="results" data-i18n="tabResults"></button>
+      </div>
+      <div id="panel-scenarios" class="hud-panel" role="tabpanel" aria-labelledby="tab-scenarios">
       <section class="panel"><div class="panel-heading"><span class="number">01</span><div><h2 data-i18n="scenarios"></h2><p data-i18n="scenarioIntro"></p></div></div>
         <div class="scenario-grid" id="scenarios" role="group" data-label="scenarios">
           <button class="scenario" data-scenario="simultaneous"><span class="scenario-icon demo-color" data-icon="spark"></span><span><strong data-i18n="simultaneous"></strong><small data-i18n="simultaneousHint"></small></span></button>
@@ -84,6 +95,8 @@
         <div class="option-row"><label for="junction-mode" data-i18n="mode"></label><select id="junction-mode"><option value="smart" data-i18n="smart" selected></option><option value="straight" data-i18n="straight"></option><option value="left-turns" data-i18n="protected"></option></select></div>
         <p class="mode-note" id="mode-note"></p><div class="option-row auto-row"><label for="auto" data-i18n="auto"></label><label class="switch"><input type="checkbox" id="auto" data-label="autoTip"><span></span></label></div>
       </section>
+      </div>
+      <div id="panel-traffic" class="hud-panel" role="tabpanel" aria-labelledby="tab-traffic" hidden>
       <section class="panel"><div class="panel-heading"><span class="number">02</span><div><h2 data-i18n="add"></h2></div></div>
         <div class="field-heading"><span data-icon="car"></span><span data-i18n="cars"></span></div>
         <div class="segments" id="movement-controls" role="group" data-label="movement"><button data-movement="straight" aria-pressed="true"><span>↑</span> <span data-i18n="through"></span></button><button data-movement="left" aria-pressed="false"><span>↰</span> <span data-i18n="left"></span></button></div>
@@ -91,18 +104,47 @@
         <div class="field-heading ped-heading"><span data-icon="person"></span><span data-i18n="people"></span></div><div class="ped-grid" id="ped-inputs"></div>
       </section>
       <section class="panel queue-panel"><div class="panel-heading"><span class="number">03</span><div><h2 data-i18n="next"></h2></div><span id="pending-count" class="count">0</span></div><div id="requests"></div><p class="decision" id="decision"></p></section>
+      <section class="panel">
+        <div class="signal-board" id="signal-board"></div>
+        <button id="timings" class="button quiet"><span data-icon="settings"></span><span data-i18n="settings"></span></button>
+      </section>
+      </div>
+      <div id="panel-results" class="hud-panel" role="tabpanel" aria-labelledby="tab-results" hidden>
+        <details class="stats" id="stats"><summary><span data-icon="stats"></span><strong data-i18n="statistics"></strong></summary><div class="metrics"><div><span data-i18n="served"></span><strong id="cars-served">0</strong></div><div><span data-i18n="crossed"></span><strong id="people-served">0</strong></div><div><span data-i18n="carWait" data-tip="carWaitTip"></span><strong id="vehicle-wait">—</strong></div><div><span data-i18n="pedWait" data-tip="pedWaitTip"></span><strong id="pedestrian-wait">—</strong></div></div></details>
+        <button id="compare-open" class="button primary" aria-haspopup="dialog" aria-controls="comparison" data-i18n="compare"></button>
   <details class="log-panel" id="log-panel"><summary><span data-icon="log"></span><strong data-i18n="log"></strong></summary><div id="events"></div></details>
-  <footer><span data-i18n="footer"></span><div><button id="export" class="button quiet"><span data-icon="download"></span><span data-i18n="export"></span></button><button id="timings" class="button quiet"><span data-icon="settings"></span><span data-i18n="settings"></span></button></div></footer>
+  <footer><span data-i18n="footer"></span><div><button id="export" class="button quiet"><span data-icon="download"></span><span data-i18n="export"></span></button></div></footer>
+      </div>
     </aside>
   </div>
 
 </main>
 <dialog id="mobile-sheet" aria-labelledby="mobile-sheet-title">
   <header class="sheet-heading"><h2 id="mobile-sheet-title" data-i18n="mobileControls"></h2><button id="mobile-close" class="icon-button" data-label="close" data-icon="close"></button></header>
-  <div id="sheet-scroll" class="sheet-scroll"><section id="mobile-run-tools"></section></div>
+  <div id="sheet-scroll" class="sheet-scroll"></div>
 </dialog>
 <dialog id="guide"><button class="icon-button close" data-close="guide" data-label="close" data-icon="close"></button><p class="eyebrow" data-i18n="lab"></p><h2 data-i18n="helpTitle"></h2><ol><li data-i18n="help1"></li><li data-i18n="help2"></li><li data-i18n="help3"></li><li data-i18n="help4"></li><li data-i18n="help5"></li></ol><p class="mode-note" data-i18n="helpNote"></p></dialog>
 <dialog id="settings"><button class="icon-button close" data-close="settings" data-label="close" data-icon="close"></button><p class="eyebrow" data-i18n="lab"></p><h2 data-i18n="settings"></h2><p data-i18n="settingsIntro"></p><form id="settings-form" novalidate><div id="timing-inputs"></div><p id="settings-error" role="alert"></p><button class="button primary" type="submit" data-i18n="apply"></button></form></dialog>
-<script type="module" src="src/app.js"></script>
+<dialog id="comparison" aria-labelledby="compare-title">
+  <div class="compare-header">
+    <h2 id="compare-title" data-i18n="compare"></h2>
+    <button class="icon-button" data-close="comparison" data-label="close" data-icon="close"></button>
+  </div>
+  <p class="compare-note" data-i18n="compareIntro"></p>
+  <form id="compare-form" class="compare-toolbar">
+    <label for="compare-profile" data-i18n="scenarios"></label>
+    <select id="compare-profile">
+      <option value="rush" data-i18n="busy"></option>
+      <option value="quiet" data-i18n="quiet"></option>
+      <option value="one-sided" data-i18n="oneSided"></option>
+      <option value="pedestrian" data-i18n="walkPeak"></option>
+    </select>
+    <button class="button primary" type="submit" data-i18n="compareRun"></button>
+  </form>
+  <div id="compare-results" class="compare-results" aria-live="polite"></div>
+  <p class="compare-note" data-i18n="compareMethod"></p>
+  <button id="compare-export" class="button quiet" data-i18n="compareCsv"></button>
+</dialog>
+<script defer src="src/boot.js"></script>
 </body>
 </html>

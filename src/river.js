@@ -46,7 +46,8 @@ const fragment=`
     vec2 p=world.xz;
     float swell=sin(dot(p,vec2(.021,.037))+time*.83);
     float crossWave=sin(dot(p,vec2(-.056,.091))+swell*1.6-time*1.17);
-    float ripples=.55*swell+.45*crossWave;
+    float longWave=sin(dot(p,vec2(.009,-.013))+time*.36);
+    float ripples=.42*swell+.37*crossWave+.21*longWave;
     float detail=0.;
     if(quality>.5){
       float width=max(length(dFdx(p)),length(dFdy(p)));
@@ -55,7 +56,7 @@ const fragment=`
     vec3 view=normalize(cameraPosition-world);
     float fresnel=.024+.976*pow(1.-clamp(view.y,0.,1.),3.2);
     vec3 color=mix(waterTint,skyTint,.055+.39*fresnel)*(1.+ripples*.049+detail*.019);
-    if(quality>.5&&decorativeLights>.5){
+    if(quality>.5&&quality<1.5&&decorativeLights>.5){
       float shore=exp(-min(abs(p.y+2303.),abs(p.y+2967.))*.031);
       float bridge=exp(-abs(abs(p.x)-168.)*.048);
       float path=abs(mod(abs(p.x)-265.+87.5+crossWave*5.,175.)-87.5);
@@ -66,11 +67,11 @@ const fragment=`
     }
     if(quality>1.5&&reflected.w>0.){
       vec2 uv=reflected.xy/reflected.w*.5+.5;
-      uv+=vec2(crossWave*.0021+detail*.0015,swell*.0014+detail*.00065);
+      uv+=vec2(crossWave*.0018+detail*.0009+longWave*.0014,swell*.0011+detail*.00052);
       vec2 border=min(uv,1.-uv);
       float edge=smoothstep(0.,.026,min(border.x,border.y));
       vec3 image=texture2D(mirror,clamp(uv,0.,1.)).rgb;
-      color=mix(color,image,edge*(.23+.49*fresnel));
+      color=mix(color,image,edge*(.26+.52*fresnel)*(1.+.09*ripples));
     }
     gl_FragColor=vec4(color,1.);
     #include <tonemapping_fragment>

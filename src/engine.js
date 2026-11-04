@@ -137,7 +137,7 @@ export class Simulation {
       occupied.add(person.side);
       person.crossing = true;
       admitted.push(person.side);
-      this.waitSamples.push({ time: this.time, kind: 'pedestrian', wait: this.time - person.born });
+      this.waitSamples.push({ id: person.id, time: this.time, kind: 'pedestrian', wait: this.time - person.born });
     }
     if (admitted.length) {
       for (const side of admitted) {
@@ -216,9 +216,10 @@ export class Simulation {
     }
     return (hasCars && !competing) || active >= Math.max(4,competing*1.5);
   }
+  hasPhaseDemand() { return this.requests.size > 0; }
   advanceSmartPhase() {
     if (this.state === 'IDLE') {
-      if (this.requests.size && !this.junctionOccupied()) this.beginSmartPhase();
+      if (this.hasPhaseDemand() && !this.junctionOccupied()) this.beginSmartPhase();
     } else if (this.state === 'GREEN') {
       const {hasCars,min,max} = this.smartGreenLimits();
       if (this.elapsed >= max || (this.elapsed >= min && !this.keepSmartGreen(hasCars))) {
@@ -229,7 +230,7 @@ export class Simulation {
       this.state='ALL_RED'; this.elapsed=0; this.log('Clearance: admitted vehicles and people finish their routes.','logClear');
     } else if (['ALL_RED','PED_CLEAR'].includes(this.state) && this.elapsed >= (this.state === 'PED_CLEAR' ? this.timings.pedestrianClear : this.timings.allRed) && !this.junctionOccupied()) {
       this.state='IDLE'; this.elapsed=0; this.current=null; this.activeRoutes.clear();
-      if(this.requests.size)this.beginSmartPhase();
+      if(this.hasPhaseDemand())this.beginSmartPhase();
     }
   }
   junctionOccupied() {
@@ -272,7 +273,7 @@ export class Simulation {
         if (!car.served && car.s > stopLine) {
           car.served = true; this.servedCars++;
           if(this.mode === 'smart')this.phaseServed.add(car.group);
-          this.waitSamples.push({ time: this.time, kind: 'vehicle', wait: car.wait });
+          this.waitSamples.push({ id: car.id, time: this.time, kind: 'vehicle', wait: car.wait });
         }
         front = car.s;
       }

@@ -68,8 +68,10 @@ export function streetMaterial(brick=false){
           float lowAngle=pow(1.-abs(dot(normalize(vViewPosition),normal)),3.);
           vec2 roadUV=vStreetPosition.xz*vec2(.029,.017);
           float patches=smoothNoise(roadUV)*.68+smoothNoise(roadUV*2.7+9.)*.32;
-          float puddle=smoothstep(.51,.83,patches);
-          outgoingLight+=skyTint*(.012+.20*lowAngle)*(.11+.89*puddle)*wet;
+          vec2 curb=abs(abs(vStreetPosition.xz)-129.);
+          float gutter=(1.-smoothstep(0.,9.,min(curb.x,curb.y)))*.3;
+          float puddle=smoothstep(.53,.79,patches+gutter);
+          outgoingLight+=skyTint*(.008+.18*lowAngle)*(.08+.92*puddle)*wet;
           float reflection=0.;
           for(int i=0;i<4;i++){
             vec3 lamp=reflectors[i];
@@ -82,7 +84,7 @@ export function streetMaterial(brick=false){
             reflection+=exp(-abs(width)*.115-abs(along)*.026);
           }
           float streak=streetNoise(floor(vStreetPosition.xz*vec2(.61,.19)));
-          outgoingLight+=vec3(1.,.50,.20)*reflection*(.12+.38*puddle)*warmth*wet*(.47+.53*streak);
+          outgoingLight+=vec3(1.,.50,.20)*reflection*(.08+.59*puddle)*warmth*wet*(.47+.53*streak);
         }
         #include <opaque_fragment>
       `);
@@ -172,11 +174,16 @@ export function districtMaterial(lamps,detail,scale=1){
       vec2 trim=1.-smoothstep(vec2(.30,.37)-aa,vec2(.30,.37)+aa,edge);
       vec2 pane=1.-smoothstep(vec2(.22,.29)-aa,vec2(.22,.29)+aa,edge);
       float recess=pane.x*pane.y*visibility;
+      float lintel=(1.-smoothstep(.06,.09,abs(fract(bays.y)-.84)))*trim.x*visibility;
+      float sill=(1.-smoothstep(.045,.08,abs(fract(bays.y)-.21)))*trim.x*visibility;
+      float shadow=(1.-smoothstep(.02,.065,abs(fract(bays.y)-.28)))*pane.x*visibility;
       float litStep=step(.76,districtHash(vec3(floor(bays),floor(wall))));
       float glass=1.-smoothstep(.014-aa.x,.014+aa.x,edge.x);
       if(districtDetail>.5)diffuseColor.rgb*=.96+.07*districtHash(vec3(floor(along/7.),floor(districtPoint.y/3.5),wall));
       diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.37,.32,.26),trim.x*trim.y*visibility*.62*districtDetail);
       diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.058,.083,.104),recess*(1.-glass*.42));
+      diffuseColor.rgb*=1.-.36*shadow*districtDetail;
+      diffuseColor.rgb+=vec3(.13,.11,.08)*(lintel+sill)*districtDetail;
     `);
     shader.fragmentShader=shader.fragmentShader.replace('#include <opaque_fragment>',`
       outgoingLight+=vec3(.83,.45,.19)*recess*litStep*districtLamps*.66;
@@ -243,7 +250,7 @@ export function terrace(kit,block){
   const bay=width/count,detail=Math.abs(x)<500&&Math.abs(z)<500;
   for(let i=0;i<count;i++){
     const lx=(i-(count-1)/2)*bay;
-    const h=height+(i%2)*6;
+    const h=height+((i*13+seed*7)%4)*3.5;
     const facade=fronts[(seed+i)%fronts.length];
     const stone='#d7c7af';
     const roof='#3f4b56';
@@ -270,8 +277,8 @@ export function terrace(kit,block){
         body(trim,wx,wy,face+1.26,8,13,.4,glass);
         if((Math.round(wy)+seed+i)%4!==0)body(lit,wx,wy,face+1.51,7.7,12.6,.18,'#ffcc91');
         for(const direction of [-1,1]){
-          body(masonry,wx+direction*5.4,wy,face+1.6,2,17,3.2,stone);
-          body(masonry,wx,wy+direction*7.9,face+1.6,11,1.8,3.2,stone);
+          body(masonry,wx+direction*5.4,wy,face+2.4,2,17,4.8,stone);
+          body(masonry,wx,wy+direction*7.9,face+2.5,11,1.8,5,stone);
         }
         body(trim,wx,wy,face+1.74,1,13.4,.4,stone);
         body(trim,wx,wy,face+1.74,9,1,.4,stone);
@@ -303,7 +310,15 @@ export function terrace(kit,block){
     if(shop&&i!==count-1){
       body(trim,lx,23,front+1,bay-5,27,3,door);
       body(trim,lx-3,23,front+3,bay-18,15,1.5,'#668085');
-      body(lit,lx-3,23,front+4,bay-19,14,.3,'#ffc18a');
+      body(lit,lx-3,detail?27:23,front+3.84,bay-19,detail?6:14,.25,'#e5b688');
+      if(detail){
+        body(trim,lx-3,20,front+4,bay-19,6,.35,'#56564a');
+        body(trim,lx-3,17.3,front+4.6,bay-19,1.1,1.8,'#84664e');
+        for(const offset of [-.26,.26]) {
+          body(lit,lx-3+(bay-18)*offset,27,front+4.8,3.2,1.9,.85,'#ffe0ab');
+          body(trim,lx-3+(bay-18)*offset,29.5,front+4.8,.42,3,.6,'#323734');
+        }
+      }
       if(detail){
         body(masonry,lx,15,front+2,bay-8,4,4,stone);
         for(const edge of [-1,1])body(masonry,lx+edge*(bay-8)/2,24,front+4,3,21,4,stone);
@@ -570,7 +585,14 @@ export function bus(kit){
   const {cube,part,trim,cyl}=kit;
   const x=-133,z=-749;
   const red='#b83036';
-  trim.push(cube(x,29,z,33,49,104,red),cube(x,54,z,32,4,103,'#ca4544'));
+  trim.push(cube(x,30.5,z,33,46,104,red),cube(x,54,z,31,4,100,'#ca4544'));
+  trim.push(cube(x,12,z+52.7,33,3,1.2,'#873238'));
+  for(const side of [-1,1]){
+    trim.push(cube(x+side*16.75,34,z,.6,1.8,102,'#8d2529'),
+      cube(x+side*16.9,19,z+37,.65,21,16,'#403f3b'),
+      cube(x+side*17.3,20,z+37,.3,13,11,'#506978'),
+      cube(x+side*17.5,19,z+37,.3,21,.8,'#222932'));
+  }
   trim.push(cube(x,8,z,35,5,106,'#293735'));
   for(const level of [23,43]){
     trim.push(cube(x,level,z+52,27,13,1.8,'#324b59'));

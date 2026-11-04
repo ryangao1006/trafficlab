@@ -1,12 +1,12 @@
 import * as T from '../vendor/three/three.module.js';
 import { vehiclePose, routeLength } from './routes.js';
-import { HOTSPOTS, drawJunction } from './draw.js';
+import { HOTSPOTS } from './draw.js';
 import { Atmosphere } from './atmosphere.js';
 import { CameraDirector } from './camera.js';
 import { CityBloom } from './bloom.js';
 import { River, riverSections } from './river.js';
 import { LocalSurfaces } from './materials.js';
-import { queueLayout, queueViewSpan } from './queue-layout.js';
+import { queueLayout } from './queue-layout.js';
 import { terrace, londonLandmarks, streetMaterial, bus, cityFrontage, facadeMaterial, districtMaterial } from './london.js';
 import { approachStarts, streetPose, streetActor, streetPedestrian, streetBounds, touchesStreet, sideStreets, sideStreetPose } from './city-streets.js';
 import { buildCinematicDistricts } from './city-districts.js';
@@ -61,7 +61,7 @@ function rounded(w,h,d,r){
   }
   g.computeVertexNormals();return g;
 }
-const bevelCar=rounded(39,16,57,6),bevelCabin=rounded(32,16,31,5),bevelRoof=rounded(30,6,26,2.5);
+const bevelCar=rounded(39,14,57,6),bevelCabin=rounded(32,13,32,5),bevelRoof=rounded(29,3.6,25,2);
 const plate=(x,z,w,d,col,y=1.55)=>cube(x,y,z,w,.5,d,col);
 function makeApproaches(scene,road,streets){
   const asphaltTint=new T.Color('#53565b');
@@ -171,7 +171,11 @@ function makeTown(scene,mapData){
   mark.push(plate(-65,-175,116,5,'#f2efdf'),plate(65,175,116,5,'#f2efdf'),plate(175,-65,5,116,'#f2efdf'),plate(-175,65,5,116,'#f2efdf'));
   const tree=(x,z,r=22,h=63,shade='#73a873')=>{
     foliage.push(column(x,13+h*.26,z,3.3,h*.55,'#8b765e'));
-    foliage.push(part(ico,x,13+h*.72,z,r,h*.43,r,shade),part(ico,x-r*.38,13+h*.75,z+r*.23,r*.75,h*.32,r*.7,'#90bb82'),part(ico,x+r*.36,13+h*.91,z-r*.18,r*.61,h*.25,r*.65,'#a9ca8b'));
+    foliage.push(part(ico,x,13+h*.72,z,r,h*.43,r,shade),part(ico,x-r*.38,13+h*.75,z+r*.23,r*.75,h*.32,r*.7,'#73966a'),part(ico,x+r*.36,13+h*.91,z-r*.18,r*.61,h*.25,r*.65,'#91aa76'));
+    if(Math.hypot(x,z)<750) {
+      foliage.push(part(ico,x+r*.54,13+h*.63,z+r*.26,r*.57,h*.23,r*.67,'#597850'),
+        part(ico,x-r*.14,13+h*.92,z-r*.43,r*.72,h*.25,r*.6,'#879f69'));
+    }
   };
   const shrub=(x,z,col)=>foliage.push(part(ico,x,16,z,12,8,10,col));
   if(!mapData){
@@ -532,13 +536,14 @@ function carShell(id){
     const height=tall?3:0,center=tall?4:0;
     const parts=[
       part(bevelCar,0,12,0,1,1,1,paint),
-      part(bevelCabin,0,24+height*.5,center,1,1+height/16,tall?1.15:1,'#355064'),
-      part(bevelRoof,0,30+height,center,1,1,tall?1.14:1,paint),
+      part(bevelCabin,0,22.5+height*.5,center,1,1+height/16,tall?1.15:1,'#355064'),
+      part(bevelRoof,0,28.8+height,center,1,1,tall?1.14:1,paint),
       cube(0,9,-27,29,3,4,'#aeb7b5'),cube(0,9,27,30,3,4,'#444f55'),
       cube(0,12,-28.2,13,3,1.5,'#263138'),cube(0,11,29.1,8,2.7,1,'#efd295'),
     ];
     for(const side of [-1,1]){
-      parts.push(cube(side*15.9,24,center,1.2,9+height,2.2,'#212f37'));
+      parts.push(cube(side*15.6,22.8,center,1.2,8+height,2,'#212f37'));
+      parts.push(cube(side*19.2,13,0,.65,1.2,28,'#28313b'),cube(side*15.5,20,center,.75,.7,24,'#9ba8ad'));
       parts.push(cube(side*17.9,18.2,center+4,1.7,1,3.4,'#dae1dd'));
       parts.push(ball(side*18.3,23,-9,3.5,1.8,3.3,paint));
     }
@@ -568,7 +573,7 @@ function makeCar(car){
   for(const x of [-12.8,12.8]){
     for(const [z,material] of [[-27.5,headlights],[27.5,tailLights]]){
       const lens=new T.Mesh(lampGeometry,material);
-      lens.position.set(x,15,z);lens.scale.set(4.3,2.3,2.1);body.add(lens);
+      lens.position.set(x,15,z);lens.scale.set(5,1.45,2.1);body.add(lens);
     }
   }
   for(const z of [-25,25]){
@@ -602,9 +607,9 @@ function walkerBody(id){
   const variant=id%15;
   if(!walkerModels.has(variant)){
     const shirt=SHIRTS[id%SHIRTS.length],skin=['#eab792','#ba8764','#f5ceaa'][id%3],hair=['#523e37','#6b5144','#413d37'][id%3];
-    const a=[ball(0,28,0,7.1,7.3,6.7,skin),ball(0,32.5,1.2,6.9,4.4,6.2,hair),ball(0,18,0,6.1,7.2,4.4,shirt),cube(0,12.5,0,8.5,4.5,6.3,'#455669')];
-    for(const x of [-2.4,2.4])a.push(ball(x,28.5,-5.9,.7,.8,.7,'#3d3d38'));
-    if(variant%3===0)a.push(ball(0,33.8,-.8,7.6,3.6,6.9,'#e5a553'),cube(0,32.4,-6.1,13,1.6,6,'#e5a553'));
+    const a=[ball(0,28,0,5.6,6.1,5.35,skin),ball(0,31.5,1,5.65,3.7,5.3,hair),ball(0,18,0,6.1,7.2,4.4,shirt),cube(0,12.5,0,8.5,4.5,6.3,'#455669')];
+    for(const x of [-2.4,2.4])a.push(ball(x,28.5,-4.8,.46,.52,.46,'#3d3d38'));
+    if(variant%3===0)a.push(ball(0,33.8,-.8,6.1,3.1,5.9,'#e5a553'),cube(0,32,-5.1,11,1.3,5,'#e5a553'));
     if(variant%3===1)a.push(ball(0,19,4.8,4.5,5.8,2.8,'#9f654d'));
     walkerModels.set(variant,combined(a).geometry);
   }
@@ -633,7 +638,7 @@ function makeWalker(person){
   Object.assign(g.userData,{body,limbs,pick:{kind:'ped',id:person.id}});return g;
 }
 function animateWalker(g,distance,weight,time){
-  const cycle=distance/34, bob=Math.sin(cycle*4*Math.PI)*.48*weight;
+  const cycle=distance/34, bob=Math.sin(cycle*4*Math.PI)*.33*weight;
   const {body,limbs}=g.userData;
   body.position.y=bob;
   body.rotation.y=Math.sin(cycle*2*Math.PI)*.12*weight;
@@ -776,12 +781,12 @@ function createRoutes(scene){
   for(const mode of ['straight','left-turns'])for(const direction of SIDES)for(const movement of (mode==='straight'?['straight']:['straight','left'])){
     const car={direction,movement},points=[];
     for(let s=48;s<routeLength(car)-80;s+=9){const p=vehiclePose(car,s,mode);points.push([p.x-500,p.y-500]);}
-    const path=ribbon(points,30,movement==='left'?'#81e6c6':'#a4e880',.2);scene.add(path);
+    const path=ribbon(points,14,movement==='left'?'#81e6c6':'#a4e880',.31);scene.add(path);
     const dash=new T.InstancedMesh(box,new T.MeshBasicMaterial({color:movement==='left'?'#b7f2db':'#d9f4a8'}),23);dash.count=0;dash.frustumCulled=false;scene.add(dash);
     all.push({mode,direction,movement,path,dash});
   }
   const walks={N:[[-165,-151],[165,-151]],E:[[150,-165],[150,165]],S:[[165,151],[-165,151]],W:[[-150,165],[-150,-165]]};
-  for(const side of SIDES){const path=ribbon(walks[side],23,'#b1e68b',.46,3);scene.add(path);all.push({side,path});}
+  for(const side of SIDES){const path=ribbon(walks[side],9,'#b1e68b',.63,3);scene.add(path);all.push({side,path});}
   return all;
 }
 function makeSensors(scene){
@@ -1126,18 +1131,5 @@ export class TownView{
       marker.hidden=p.z< -1||p.z>1||x<18||x>this.width-18||y<22||y>this.height-20;
       if(!marker.hidden)marker.style.transform=`translate(${x.toFixed(1)}px,${y.toFixed(1)}px) translate(-50%,-50%)`;
     }
-  }
-}
-export class FlatView{
-  constructor(canvas,viewport,markers,onChange){
-    this.canvas=canvas;this.viewport=viewport;this.markers=markers;this.onChange=onChange;this.fallback=true;canvas.classList.add('flat-canvas');
-    canvas.width=1000;canvas.height=1000;this.observer=new ResizeObserver(onChange);this.observer.observe(viewport);
-  }
-  resetActors(){} select(){} zoomBy(){}
-  render(sim,alpha,opts){
-    const layout=queueLayout(sim,alpha),span=queueViewSpan(layout.reach),offset=(span-1000)/2;
-    drawJunction(this.canvas,sim,{...opts,alpha,layout,span,markers:false});
-    const w=this.viewport.clientWidth,h=this.viewport.clientHeight,s=Math.min(w,h);
-    for(const [i,m] of this.markers.entries()){const p=HOTSPOTS[i];m.hidden=false;m.style.transform=`translate(${(w-s)/2+(p.x+offset)*s/span}px,${(h-s)/2+(p.y+offset)*s/span}px) translate(-50%,-50%)`;}
   }
 }

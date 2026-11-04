@@ -1,5 +1,12 @@
 const TEXT={
  en:{
+  sceneMenu:'Scene', cameraMenu:'Camera', tabScenarios:'Scenarios', tabTraffic:'Traffic', tabResults:'Results',
+  compare:'Compare strategies', fixedTiming:'Fixed timing', oneSided:'One busy approach', walkPeak:'Pedestrian peak',
+  compareRun:'Replay', compareCsv:'Download comparison CSV', compareMean:'Average wait', compareP95:'95th percentile wait',
+  compareServed:'Admitted by 120 s', compareQueued:'Still waiting at 120 s', compareUnserved:'Still waiting at 30 min',
+  compareIntro:'Both strategies replay the same arrivals. Fixed timing rotates through north–south through and left turns, east–west through and left turns, then pedestrians.',
+  compareMethod:'Classroom baseline · 10 s vehicle green and 4 s walk. Waiting is measured from arrival to entry, including after the 120 s arrival window. Averages and percentiles use admitted traffic.',
+
   studio:'INTERSECTION STUDIO', lab:'3D TRAFFIC LAB', title:'Traffic in motion.', subtitle:'Explore a miniature junction and see who gets the next green.', clock:'SIMULATION TIME', running:'Running', paused:'Paused', help:'How to use', language:'Language',
   junction:'Junction 01', sandbox:'Interactive model', view3d:'3D VIEW', view2d:'2D VIEW', fallback:'3D is unavailable on this device. You can still run the simulation.', orbitHint:'Drag to rotate · scroll to zoom', canvasLabel:'Interactive junction. Drag to rotate, scroll to zoom, or use the arrow keys.',
   city:'City', cityCinematic:'Cinematic London', cityWestminster:'Westminster Map',
@@ -30,6 +37,13 @@ const TEXT={
   logWalk:'{sides} crossings · {n} pedestrians admitted.', logSmart:'Green: {routes}. Priority: {route} ({n} waiting or approaching).', logJoin:'Compatible routes join: {routes}. Timer unchanged.', logClose:'Vehicle greens close through amber; walk signals turn red.', logWalkClose:'Walk signals close. Admitted pedestrians finish crossing.', logClear:'Clearance: admitted traffic finishes crossing.', logAmber:'{route} changes to amber.', logPedClear:'Pedestrian clearance. Vehicles remain red.', logScenario:'Scene: {scene} · {mode}.', logAutoOn:'Automatic arrivals enabled.',logAutoOff:'Automatic arrivals disabled.'
  },
  zh:{
+  sceneMenu:'街景', cameraMenu:'镜头', tabScenarios:'场景', tabTraffic:'交通', tabResults:'结果',
+  compare:'策略对比', fixedTiming:'固定配时', oneSided:'单边车流', walkPeak:'行人高峰',
+  compareRun:'重新运行', compareCsv:'下载对比 CSV', compareMean:'平均等待', compareP95:'第 95 百分位等待',
+  compareServed:'120 秒内放行', compareQueued:'120 秒时仍在等待', compareUnserved:'30 分钟时仍在等待',
+  compareIntro:'两种策略重放同一批到达记录。固定配时依次放行南北直行、南北左转、东西直行、东西左转和行人。',
+  compareMethod:'课堂对照设定为车辆绿灯 10 秒、行人放行 4 秒。等待按到达至获准通行计算，包含 120 秒到达窗口后的等待。平均值和百分位使用已获准通行的数据。',
+
   studio:'路口实验室', lab:'3D 交通模拟', title:'让路口动起来。', subtitle:'探索微缩路口，看看下一轮绿灯会放行谁。', clock:'模拟时间', running:'运行中', paused:'已暂停', help:'使用帮助', language:'语言',
   junction:'01 号路口', sandbox:'互动模型', view3d:'3D 视图', view2d:'2D 视图', fallback:'此设备无法使用 3D，仍可以运行模拟。', orbitHint:'拖动旋转 · 滚动缩放', canvasLabel:'互动路口。拖动旋转、滚动缩放，也可使用方向键。',
   city:'街景', cityCinematic:'电影伦敦', cityWestminster:'真实地图 · Westminster',

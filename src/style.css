@@ -179,8 +179,6 @@ footer>div{width:100%;justify-content:space-between}
 .phase-tag.amber{background:#51422b;border-color:#dfb76858;color:#ffd085}
 .phase-track{background:#314556}
 .phase-overview[data-state] .phase-track span{background:var(--phase-accent);box-shadow:0 0 10px var(--phase-accent)}
-.running #phase-progress{transition:width .16s linear}
-.running #phase-progress.phase-reset{transition:none}
 .signal-card,.scenario,.direction-grid button,.ped-grid button,.option-row select,.decision,.request.next,#timing-inputs input{
   background:var(--raised);
   border-color:var(--line);
@@ -380,12 +378,6 @@ button{transition:background-color .16s,border-color .16s,color .16s,box-shadow 
 .mobile-layout #mobile-sheet .scenario{padding:7px;gap:7px}
 .mobile-layout #mobile-sheet .scenario-icon{width:29px;height:29px}
 .mobile-layout #mobile-sheet .queue-panel #requests{max-height:none}
-#mobile-run-tools{margin-top:8px;display:flex;flex-wrap:wrap;align-items:center;gap:8px}
-#mobile-run-tools :is(.signal-board,.stats){display:block;width:100%}
-#mobile-run-tools .signal-board{display:grid}
-#mobile-run-tools .speed{margin-left:auto}
-#mobile-run-tools .speed button{min-width:42px;min-height:42px}
-#mobile-run-tools .stats summary{min-height:44px}
 .mobile-layout dialog:not(#mobile-sheet){max-height:calc(100dvh - var(--safe-top) - var(--safe-bottom) - 24px);overflow:auto}
 
 @media(max-width:370px){
@@ -440,3 +432,90 @@ button{transition:background-color .16s,border-color .16s,color .16s,box-shadow 
 @media(max-width:370px), (orientation:landscape) and (max-height:550px) and (max-width:640px){
   .mobile-layout .view-tools button{min-width:36px;padding-inline:5px}
 }
+
+/* v2.2 · a shared desktop rail and mobile control sheet */
+body.booting > :not(.boot-screen):not(script){visibility:hidden}
+.boot-screen{
+  position:fixed;inset:0;z-index:20;display:grid;align-content:center;justify-items:center;gap:12px;
+  background:radial-gradient(ellipse at 50% 45%,#284758,#101e2c 70%);color:#e9f5f6;text-align:center;
+}
+.boot-screen strong{font-size:clamp(32px,7vw,58px);letter-spacing:-.06em}
+.boot-screen a{display:inline-block;padding:8px 16px;color:#a0f0d2}
+.hud-tabs{
+  position:sticky;top:0;z-index:2;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:4px;padding:5px;border:1px solid var(--line);border-radius:12px;background:#142432;
+}
+.hud-tabs button{
+  min-height:36px;border-radius:8px;border:1px solid transparent;padding:4px;color:#c2d1de;background:transparent;font-weight:650;
+}
+.hud-tabs button[aria-selected=true]{border-color:#69c3aa65;background:#254651;color:#d5f8ec}
+.hud-tabs button:hover{background:#2c495c}
+.hud-panel{display:grid;gap:8px}
+.hud-panel[hidden],.boot-screen[hidden]{display:none}
+.hud-panel .signal-board{width:100%;box-shadow:none;margin-bottom:8px}
+.hud-panel .stats .metrics{grid-template-columns:repeat(2,minmax(0,1fr));row-gap:12px}
+.hud-panel .stats .metrics>div:nth-child(3){border-left:0;padding-left:0}
+#compare-open{justify-content:center;min-height:42px}
+.phase-overview{border-left:3px solid var(--phase-accent)}
+.phase-track #phase-progress{width:100%;transform:scaleX(0);transform-origin:left;transition:none}
+.phase-copy{min-width:0}
+.clock strong,.phase-counter strong,.request .age,.count,.metrics strong,.compare-card dd{font-variant-numeric:tabular-nums}
+.scene-label{color:#a9c5d4;font-weight:600}
+.sky-controls summary{gap:8px}
+.camera-menu{position:relative}
+.camera-menu summary{
+  display:flex;align-items:center;gap:6px;padding:8px 12px;min-height:38px;
+  border:1px solid var(--line);border-radius:10px;background:var(--glass);color:#d5e7ef;cursor:pointer;
+}
+.camera-menu summary svg{width:16px;height:16px}
+.camera-menu .camera-tools{
+  position:absolute;bottom:calc(100% + 7px);right:0;width:max-content;
+  max-width:calc(100vw - 24px);flex-wrap:wrap;justify-content:flex-end;
+}
+#comparison{
+  width:min(720px,calc(100% - 24px));max-height:calc(100dvh - 24px);overflow:auto;
+  padding:clamp(14px,3vw,24px);background:#132331;color:#e8f3f8;
+}
+.compare-header,.compare-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.compare-header{justify-content:space-between}
+.compare-header h2{margin:0}
+.compare-header button{min-width:44px;min-height:44px}
+.compare-toolbar{margin:12px 0}
+.compare-toolbar select,.compare-toolbar button,#compare-export{min-height:44px}
+.compare-toolbar select{background:#22394a;color:#eff7fa;min-width:120px}
+.compare-note{margin:8px 0;line-height:1.5}
+.compare-results{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.compare-card{border:1px solid var(--line);border-top:2px solid #93d2c4;border-radius:12px;background:#1a3040;padding:12px}
+.compare-card[data-policy=fixed]{border-top-color:#e3bd82}
+.compare-card h3{margin:0;color:#eaf6fb}
+.compare-card h4{margin:10px 0 4px;color:#bbd1de}
+.compare-card dl{margin:0}
+.compare-card dl>div{display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-top:1px solid var(--line)}
+.compare-card dt{color:#c5d6e0}
+.compare-card dd{margin:0;text-align:right;font-weight:650}
+#compare-export{margin-top:4px}
+:is(button,summary,a,select):focus-visible{outline:2px solid #a0f0d2;outline-offset:2px}
+.mobile-layout .transport{grid-template-columns:repeat(4,minmax(0,1fr))}
+.mobile-layout #run-speed{grid-column:1/-1;justify-self:center}
+.mobile-layout #run-speed button,.mobile-layout .hud-tabs button,.mobile-layout .sky-controls summary,
+.mobile-layout .camera-menu summary,.mobile-layout .view-tools button{min-height:44px}
+.mobile-layout .view-tools button{min-width:44px}
+.mobile-layout{--camera-bottom:calc(114px + var(--safe-bottom))}
+.mobile-layout .map-credit{bottom:calc(159px + var(--safe-bottom))}
+.mobile-layout #comparison .compare-results{grid-template-columns:1fr}
+@media(max-width:570px){.compare-results{grid-template-columns:1fr}}
+@media(orientation:landscape) and (max-height:550px){
+  .mobile-layout .view-tools{bottom:var(--dock-bottom)}
+  .mobile-layout .simulation-controls{width:min(56vw,420px)}
+  .mobile-layout .map-credit{bottom:calc(59px + var(--safe-bottom))}
+}
+@media (prefers-reduced-motion:no-preference){
+  .hud-panel:not([hidden]),.camera-menu[open] .camera-tools,#comparison[open],#mobile-sheet[open]{
+    animation:hud-in .18s cubic-bezier(.2,.7,.3,1) both;
+  }
+  #hud:not([hidden]) :is(.junction-status,.simulation-controls,.sidebar){animation-duration:.18s}
+  .hud-tabs button:active,.camera-tools button:active,.transport button:active{transform:translateY(1px)}
+}
+
+.view-tools{position:fixed;z-index:4}
+.mobile-layout .toast{top:calc(205px + var(--safe-top))}

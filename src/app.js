@@ -1,7 +1,8 @@
 import { Simulation, SIDES } from './engine.js';
 import { HOTSPOTS } from './draw.js';
 import { routeKey } from './conflicts.js';
-import { TownView, FlatView } from './town.js';
+import { FlatView } from './flat-view.js';
+import { compareStrategies, comparisonCsv } from './compare.js';
 import { translate, sideName, localRoute, localEvent } from './i18n.js';
 
 const $=id=>document.getElementById(id), sim=new Simulation({},'smart');
@@ -67,31 +68,64 @@ try{
 }catch{}
 const mobileLayout=matchMedia('(max-width: 760px), (pointer: coarse) and (max-height: 550px) and (max-width: 1024px)');
 const sheet=$('mobile-sheet'), sidebar=$('sidebar'), sidebarHome=sidebar.parentElement;
-const runTools=$('mobile-run-tools'), transport=$('transport'), simControls=transport.parentElement;
-const signalBoard=$('signal-board'), stats=$('stats'), reset=$('reset'), runSpeed=$('run-speed');
+const scrollPositions = new Map();
+const tabs = [...document.querySelectorAll('[data-tab]')];
+let selectedTab = 'scenarios';
+const sidebarScroller = () => mobileLayout.matches ? $('sheet-scroll') : sidebar;
+function selectTab(tab, focus = false) {
+  const scroller = sidebarScroller();
+  scrollPositions.set(selectedTab, scroller.scrollTop);
+  selectedTab = tab.dataset.tab;
+  for (const item of tabs) {
+    const active = item === tab;
+    item.setAttribute('aria-selected', active);
+    item.tabIndex = active ? 0 : -1;
+    hide($(item.getAttribute('aria-controls')), !active);
+  }
+  scroller.scrollTop = scrollPositions.get(selectedTab) ?? 0;
+  if (focus) tab.focus({ preventScroll: true });
+}
+for (const tab of tabs) {
+  tab.onclick = () => selectTab(tab);
+  tab.onkeydown = event => {
+    const index = tabs.indexOf(tab);
+    const next = { ArrowLeft: (index + tabs.length - 1) % tabs.length,
+      ArrowRight: (index + 1) % tabs.length, Home: 0, End: tabs.length - 1 }[event.key];
+    if (next === undefined) return;
+    event.preventDefault();
+    selectTab(tabs[next], true);
+  };
+}
 function syncMobileLayout(){
   const mobile=mobileLayout.matches;
   document.body.classList.toggle('mobile-layout',mobile);
   hide($('mobile-controls'),!mobile);
-  if(mobile){
+  if(mobile) {
+    if (sidebar.parentElement === sidebarHome) scrollPositions.set(selectedTab, sidebar.scrollTop);
     $('sheet-scroll').prepend(sidebar);
-    runTools.append(signalBoard,stats,reset,runSpeed);
-  }else{
-    if(sheet.open)sheet.close();
+  }
+  else {
+    if(sheet.open) {
+      scrollPositions.set(selectedTab, $('sheet-scroll').scrollTop);
+      sheet.close();
+    }
     sidebarHome.append(sidebar);
-    simControls.prepend(signalBoard,stats);
-    transport.insertBefore(reset,$('quick-demo'));
-    transport.append(runSpeed);
+    sidebar.scrollTop = scrollPositions.get(selectedTab) ?? 0;
   }
 }
 mobileLayout.addEventListener('change',syncMobileLayout);
 syncMobileLayout();
 $('mobile-controls').onclick=()=>{
   $('sky-controls').open=false;
-  $('sheet-scroll').scrollTop=0;
   sheet.showModal();
+  $('sheet-scroll').scrollTop = scrollPositions.get(selectedTab) ?? 0;
 };
 $('mobile-close').onclick=()=>sheet.close();
+sheet.addEventListener('close', () => {
+  if (!mobileLayout.matches) return;
+  scrollPositions.set(selectedTab, $('sheet-scroll').scrollTop);
+  $('mobile-controls').focus({ preventScroll: true });
+});
 sheet.addEventListener('click',e=>{
   if(e.target!==sheet)return;
   const rect=sheet.getBoundingClientRect();
@@ -121,7 +155,7 @@ function frame(now){
   if(!frameId)cameraPrevious=0;
 }
 let view;
-try{view=new TownView($('junction'),$('viewport'),pins,invalidate,pick=>{selection=pick;view.select(pick);refreshInspector();});}
+try{const { TownView } = await import('./town.js'); view=new TownView($('junction'),$('viewport'),pins,invalidate,pick=>{selection=pick;view.select(pick);refreshInspector();});}
 catch(error){
   console.warn('3D view unavailable:',error.message);
   const canvas=$('junction').cloneNode(false);$('junction').replaceWith(canvas);
@@ -238,8 +272,8 @@ function applyLanguage(){
   for(const el of document.querySelectorAll('[data-tip]'))attr(el,'title',t(el.dataset.tip));
   for(const b of document.querySelectorAll('[data-lang]'))pressed(b,b.dataset.lang===lang);
   for(const d of SIDES){text(`entry-${d}`,t('entry',{side:name(d)}));text($(`light-${d}-ped`).lastElementChild,`${t('walk')} ${'NS'.includes(d)?'↔':'↕'}`);}
-  text('view-badge',t(view.fallback?'view2d':'view3d'));refreshViewHint();hide($('camera-tools'),!!view.fallback);
-  hide($('map-toast'),true);refreshSky();refreshCity();refreshCameraControls();syncOptions();refresh();invalidate();
+  text('view-badge',t(view.fallback?'view2d':'view3d'));refreshViewHint();hide($('camera-menu'),!!view.fallback);
+  hide($('map-toast'),true);refreshSky();refreshCity();refreshCameraControls();syncOptions();refresh();renderComparison();invalidate();
 }
 function signalValue(d,kind){return kind==='ped'?sim.pedestrianSignal(d):sim.vehicleSignal(d,kind);}
 function refreshSignals(){
@@ -268,7 +302,8 @@ function refreshPhase(){
   const held=p.duration>0&&remaining===0&&['ALL_RED','PED_CLEAR'].includes(st)&&sim.junctionOccupied();
   text('phase-tag',p.tag);$('phase-tag').classList.toggle('green',green);$('phase-tag').classList.toggle('amber',st==='AMBER');
   const phase=$('phase-overview'),progress=$('phase-progress');
-  const stateChanged=phase.dataset.state!==st;
+  const stateChanged=phase.dataset.phaseKey!==st+':'+sim.current;
+  phase.dataset.phaseKey=st+':'+sim.current;
   attr(phase,'data-state',st);text('phase-title',p.title);text('phase-description',p.description);
   if(stateChanged&&!reducedMotion){
     $('phase-copy').getAnimations().forEach(animation=>animation.cancel());
@@ -276,9 +311,7 @@ function refreshPhase(){
   }
   text('phase-seconds',held?t('hold'):p.duration?sec(Math.ceil(remaining)):'—');
   text('phase-limit',t(held?'occupied':!p.duration?'noTimer':green?'maxLeft':'minLeft'));
-  const width=p.duration?100*remaining/p.duration:0;
-  progress.classList.toggle('phase-reset',stateChanged||width>parseFloat(progress.style.width));
-  progress.style.width=`${width}%`;
+  progress.style.transform = `scaleX(${p.duration ? remaining / p.duration : 0})`;
 }
 function refreshQueue(){
   const smart=sim.mode==='smart',next=sim.selectGroup(),rows=[];
@@ -319,7 +352,7 @@ function updateCount(id,value){
   text(el,value);
   if(increased&&!reducedMotion){
     el.getAnimations().forEach(animation=>animation.cancel());
-    el.animate([{color:'#8be7ca',transform:'translateY(-2px)'},{color:'#edf6ff',transform:'translateY(0)'}],{duration:280,easing:'ease-out'});
+    el.animate([{color:'#8be7ca',transform:'translateY(-2px)'},{color:'#edf6ff',transform:'translateY(0)'}],{duration:180,easing:'ease-out'});
   }
 }
 function refresh(){
@@ -356,8 +389,11 @@ $('quick-demo').onclick=()=>resetScene('simultaneous',true);
 $('paths-toggle').onclick=()=>{showPaths=!showPaths;pressed($('paths-toggle'),showPaths);invalidate();};
 $('zoom-in').onclick=()=>view.zoomBy(1.18);
 $('zoom-out').onclick=()=>view.zoomBy(1/1.18);
-for(const [id,shot] of [['street-view','street'],['top-view','top'],['view-reset','orbit']]){
-  $(id).onclick=()=>view.setShot?.(shot,reducedMotion);
+for(const [id,shot] of [['street-view','street'],['top-view','top'],['view-reset','orbit'],['camera-river','river']]){
+  $(id).onclick=()=>{
+    view.setShot?.(shot,reducedMotion);
+    closeDisclosure($('camera-menu'));
+  };
 }
 $('river-view').onclick=()=>{
   $('sky-controls').open=false;
@@ -396,16 +432,75 @@ $('settings-form').onsubmit=e=>{
 $('export').onclick=async()=>{
   setRunning(false);
   const rows=[['record_type','simulation_seconds','kind','waiting_seconds','message'],['configuration',0,'mode','',sim.mode],...sim.waitSamples.map(r=>['served',r.time.toFixed(2),r.kind,r.wait.toFixed(2),'']),...sim.events.map(e=>['event',e.time.toFixed(2),'','',localEvent(lang,e)]),['pending',sim.time.toFixed(2),'vehicles','',sim.vehicleGroups.reduce((n,key)=>n+sim.routeCount(key),0)],['pending',sim.time.toFixed(2),'pedestrians','',sim.routeCount('PED')]];
-  const csv=(lang==='zh'?'\uFEFF':'')+rows.map(row=>row.map(v=>`"${String(v).replaceAll('"','""')}"`).join(',')).join('\n');
-  if(window.trafficLab){
-    try{if(await window.trafficLab.saveTestData(csv,lang)){sim.log('Test data saved as CSV.','saved');toast(t('saved'));refreshLog();}}
-    catch{sim.log('Could not save the CSV.','saveFailed');toast(t('saveFailed'));refreshLog();}return;
+  const csv=rows.map(row=>row.map(v=>`"${String(v).replaceAll('"','""')}"`).join(',')).join('\n');
+  if (await saveCsv(csv, 'trafficlab-test-data.csv') && window.trafficLab) {
+    sim.log('Test data saved as CSV.', 'saved');
+    refreshLog();
   }
-  const a=document.createElement('a'),url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.href=url;a.download='trafficlab-test-data.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 };
+async function saveCsv(data, filename) {
+  const csv = (lang === 'zh' ? '\uFEFF' : '') + data;
+  if (window.trafficLab) {
+    try {
+      const saved = await window.trafficLab.saveTestData(csv, lang, filename);
+      if (saved) toast(t('saved'));
+      return saved;
+    } catch { toast(t('saveFailed')); return false; }
+  }
+  const a = document.createElement('a');
+  const url = URL.createObjectURL(new Blob([csv], {type:'text/csv;charset=utf-8'}));
+  a.href = url;
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  return true;
+}
+let comparison;
+const compareDialog = $('comparison');
+function renderComparison() {
+  if (!comparison) return;
+  const labels = [['mean', 'compareMean'], ['p95', 'compareP95'], ['served', 'compareServed'], ['queued', 'compareQueued']];
+  const cards = ['smart', 'fixed'].map(policy => {
+    const groups = ['vehicle', 'pedestrian'].map(kind => {
+      const metrics = comparison[policy].metrics[kind];
+      const rows = labels.map(([key, label]) => {
+        const value = metrics[key];
+        const display = value === null ? '—' : key === 'mean' || key === 'p95' ? sec(value.toFixed(2)) : value;
+        return `<div><dt>${t(label)}</dt><dd>${display}</dd></div>`;
+      });
+      if (metrics.unserved) rows.push(`<div><dt>${t('compareUnserved')}</dt><dd>${metrics.unserved}</dd></div>`);
+      return `<h4>${t(kind === 'vehicle' ? 'cars' : 'people')}</h4><dl>${rows.join('')}</dl>`;
+    });
+    return `<section class="compare-card" data-policy="${policy}"><h3>${t(policy === 'smart' ? 'smart' : 'fixedTiming')}</h3>${groups.join('')}</section>`;
+  });
+  html('compare-results', cards.join(''));
+}
+function runComparison() {
+  comparison = compareStrategies($('compare-profile').value);
+  renderComparison();
+}
+$('compare-open').onclick = () => {
+  if (!comparison) runComparison();
+  compareDialog.showModal();
+};
+$('compare-profile').onchange = runComparison;
+$('compare-form').onsubmit = event => { event.preventDefault(); runComparison(); };
+$('compare-export').onclick = () => saveCsv(comparisonCsv(comparison), 'trafficlab-strategy-comparison.csv');
+for (const disclosure of [$('sky-controls'), $('camera-menu')]) {
+  disclosure.addEventListener('toggle', () => {
+    if (!disclosure.open) return;
+    for (const other of [$('sky-controls'), $('camera-menu')]) if (other !== disclosure) other.open = false;
+  });
+}
+function closeDisclosure(disclosure) {
+  disclosure.open = false;
+  disclosure.querySelector('summary').focus({ preventScroll: true });
+}
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&running)setRunning(false);});
 window.addEventListener('keydown',e=>{
-  if(e.key==='Escape'){
+  if(e.key==='Escape' && !document.querySelector('dialog[open]')){
+    const disclosure = document.querySelector('#sky-controls[open], #camera-menu[open]');
+    if (disclosure) { e.preventDefault(); closeDisclosure(disclosure); return; }
     if(view.director?.free)view.setFree(false);
     else view.director?.cancel();
   }

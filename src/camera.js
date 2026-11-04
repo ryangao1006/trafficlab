@@ -4,7 +4,7 @@ const SHOTS={
   orbit:{azimuth:.26,elevation:.38,distance:850,target:[0,20,0]},
   street:{azimuth:.16,elevation:.14,distance:450,target:[0,22,0]},
   turn:{azimuth:.28,elevation:.27,distance:307,target:[14,12,0]},
-  river:{azimuth:-1.12,elevation:.28,distance:2050,target:[410,123,-2650]},
+  river:{azimuth:-1.27,elevation:.26,distance:2200,target:[490,103,-2650]},
   top:{azimuth:0,elevation:1.52,distance:1230,target:[0,0,0]},
 };
 const TOUR=[['street',2300],['turn',4800],['top',4200]];

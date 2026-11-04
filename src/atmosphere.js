@@ -8,14 +8,14 @@ const LIGHT = {
     fill:'#dceaff', ground:'#94766b', ambient:1.55, lamps:.04, disk:1,
   },
   golden: {
-    zenith:'#6187b7', horizon:'#ffd0a3', glow:'#ff954b', mist:'#d5b6a9',
-    sun:'#ffb361', direction:[-530,203,-950], strength:3.05,
-    fill:'#bdccef', ground:'#bc8271', ambient:1.33, lamps:.62, disk:1,
+    zenith:'#6187b7', horizon:'#f5c8a7', glow:'#fcb076', mist:'#d5b6a9',
+    sun:'#ffb361', direction:[-530,161,-950], strength:3.15,
+    fill:'#b4c5ec', ground:'#a78677', ambient:1.43, lamps:.62, disk:1,
   },
   blue: {
-    zenith:'#192e50', horizon:'#58779a', glow:'#db9793', mist:'#536d87',
+    zenith:'#142744', horizon:'#67839f', glow:'#db9793', mist:'#526277',
     sun:'#a3baff', direction:[-850,380,-590], strength:.57,
-    fill:'#a4c3ee', ground:'#626b91', ambient:1.37, lamps:1, disk:0, twilight:.92,
+    fill:'#a7bedb', ground:'#6d748a', ambient:1.5, lamps:1, disk:0, twilight:.92,
   },
   night: {
     zenith:'#0e173c', horizon:'#4f6287', glow:'#8fa9db', mist:'#415579',
@@ -26,7 +26,7 @@ const LIGHT = {
 const WEATHER = {
   clear:{cover:.17, sun:1, fogNear:3500, fogFar:11300, grey:0, wet:0},
   clouds:{cover:.69, sun:.54, fogNear:2450, fogFar:8500, grey:.29, wet:0},
-  rain:{cover:.96, sun:.18, fogNear:1250, fogFar:6600, grey:.38, wet:1},
+  rain:{cover:.90, sun:.24, fogNear:2550, fogFar:10300, grey:.24, wet:1},
 };
 
 const skyVertex = /* glsl */ `
@@ -166,8 +166,8 @@ export class Atmosphere {
     this.fill.groundColor.set(light.ground);
     this.fill.intensity=light.ambient+(weather==='clouds'?.12:0);
     this.renderer.shadowMap.needsUpdate=true;
-    this.road.roughness=air.wet?.28:.94;
-    this.road.metalness=air.wet?.26:.02;
+    this.road.roughness=air.wet?.46:.94;
+    this.road.metalness=air.wet?.10:.02;
     this.road.userData.wet.value=air.wet;
     this.road.userData.skyTint.value.copy(horizon.value);
     this.lamps.opacity=Math.min(1,light.lamps+(weather==='rain'?.28:0));
